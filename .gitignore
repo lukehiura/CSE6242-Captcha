@@ -15,9 +15,8 @@ env/
 # ── Jupyter ────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# ── Generated model / data files ──────────────────────────────────────────
-# Produced by running the notebook. Teammates regenerate locally.
-# notebook/output/ is the single source of truth — no copies elsewhere.
+# ── Generated notebook artifacts ─────────────────────────────────────────
+# notebook/output/ is the old export dir — no longer used
 notebook/output/
 
 
