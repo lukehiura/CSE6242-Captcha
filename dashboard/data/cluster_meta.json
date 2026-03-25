@@ -1,14 +1,26 @@
 [
   {
     "id": 0,
-    "name": "Fast-Direct-Hesitant",
-    "size": 9525,
+    "name": "Fast-Balanced-Fluid",
+    "size": 7218,
     "color": "#f77189"
   },
   {
     "id": 1,
-    "name": "Fast-Direct-Hesitant",
-    "size": 475,
+    "name": "Slow-Balanced-Fluid",
+    "size": 3616,
+    "color": "#97a431"
+  },
+  {
+    "id": 2,
+    "name": "Moderate-Circuitous-Hesitant",
+    "size": 1155,
     "color": "#36ada4"
+  },
+  {
+    "id": 3,
+    "name": "Moderate-Direct-Fluid",
+    "size": 5682,
+    "color": "#a48cf4"
   }
 ]
