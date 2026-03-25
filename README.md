@@ -2,7 +2,7 @@
 
 **CSE 6242 Team 165** — Cho, Hiura, Kweon, Yu, Zailaa — Spring 2026
 
-Play a CAPTCHA game, see which behavioral cluster you belong to, and explore where you land among 10,000 historical sessions.
+Play a CAPTCHA game, see which behavioral cluster you belong to, and explore where you land among historical sessions on a PCA scatter plot.
 
 ---
 
@@ -11,33 +11,27 @@ Play a CAPTCHA game, see which behavioral cluster you belong to, and explore whe
 ```
 CSE6242-Captcha/
   notebook/
-    CaptchaSolve.ipynb      # Full data pipeline: load -> features -> cluster -> export
-    output/                 # Generated files (gitignored, created by running notebook)
-      scatter_points.json
-      cluster_profiles.json
-      cluster_meta.json
-      representative_traces.json
-      task_norm_stats.json
-      pca_model.pkl
-      rf_classifier.pkl
+    CaptchaSolve.ipynb      # Pipeline: load -> features -> EDA -> z-score -> PCA -> clustering -> export
 
   dashboard/
+    data/                   # JSON written by the notebook (committed or regenerated locally)
+      scatter_points.json   # PCA x/y, cluster, game_type, key features (for scatter + tooltips)
+      cluster_profiles.json # Per-cluster mean features (normalized)
+      cluster_meta.json     # Cluster ids, display names, short descriptions
     frontend/
-      index.html            # Single-page dashboard (scatter plot + game + radar)
-      game.js               # WASM glue code     (gitignored, downloaded by setup.sh)
-      game.wasm             # CAPTCHA game engine (gitignored, downloaded by setup.sh)
-                            # Fetches data directly from notebook/output/ at runtime
+      index.html            # Dashboard shell (visualizations in progress)
+      game.js               # WASM glue (add when wiring the live game)
+      game.wasm             # CAPTCHA engine (add when wiring the live game)
     backend/
-      app.py                # Flask classify endpoint
-                            # Reads models directly from notebook/output/ at runtime
+      app.py                # Flask API (CORS + /health; classify endpoint TBD)
 
   proposal/
-    paper.tex               # LaTeX source
+    paper.tex
     references.bib
     build.sh                # Compile to PDF: bash proposal/build.sh
 
   papers/                   # Reference papers (PDFs)
-  setup.sh                  # One-command setup after running the notebook
+  pyproject.toml            # uv / dependencies
   README.md
   .gitignore
 ```
@@ -53,74 +47,49 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env   # or restart your shell
 ```
 
-### Step 2 — Install all dependencies
+### Step 2 — Install dependencies
 
 ```bash
 uv sync --extra dev
 ```
 
-This creates `.venv/` and installs everything from `pyproject.toml` — including the notebook, ML, and backend packages. No manual `pip install` needed.
+This creates `.venv/` from `pyproject.toml` (notebook, ML stack, backend).
 
 ### Step 3 — Run the notebook
 
 ```bash
-# Register the Jupyter kernel backed by the uv environment
 uv run python -m ipykernel install --user --name cse6242 --display-name "CSE6242 (Python 3)"
-
-# Open the notebook (select the CSE6242 kernel)
 uv run jupyter notebook notebook/CaptchaSolve.ipynb
 ```
 
-This writes all output to `notebook/output/`.
+Select the **CSE6242** kernel. Run all cells through the export section. That refreshes `dashboard/data/*.json`.
 
-### Step 4 — Set up the dashboard
-
-```bash
-bash setup.sh
-```
-
-Downloads `game.js` and `game.wasm` from the HuggingFace Space if not already present.
-The frontend and backend both read directly from `notebook/output/` — no data copying needed.
-
-### Step 3 — Run
+### Step 4 — Run the app (optional)
 
 Open two terminals:
 
 ```bash
-# Terminal 1: backend
+# Terminal 1 — API (default port 5001)
 uv run python dashboard/backend/app.py
-# Running on http://localhost:5000
 
-# Terminal 2: frontend
+# Terminal 2 — static frontend
 cd dashboard/frontend
 python3 -m http.server 8000
-# Open http://localhost:8000
 ```
+
+Open [http://localhost:8000](http://localhost:8000). The backend health check is [http://127.0.0.1:5001/health](http://127.0.0.1:5001/health).
 
 ---
 
-## How it works
 
-```
-User plays CAPTCHA game in browser
-    -> raw (x, y, isDown) mouse stream
-    -> POST /classify to backend
-    -> extract ~30 movement features
-    -> normalize per game type using task_norm_stats.json
-    -> PCA compression (pca_model.pkl)
-    -> Random Forest classification (rf_classifier.pkl)
-    -> return cluster label + UMAP coordinates
-    -> dot animates onto the scatter plot
-```
+The notebook builds clusters from session trajectories
 
----
+1. **Features (6):** `duration`, `path_length`, `speed_mean`, `path_efficiency`, `pause_rate`, `speed_std` — with deduping and outlier filtering during extraction.
+2. **Normalization:** Z-score each feature **within game type** (`thread-the-needle`, `polygon-stacking`, `sheep-herding`) so tasks are comparable.
+3. **Dimensionality reduction:** PCA retaining enough components to explain ~90% of variance (used for clustering; PC1/PC2 are used for the 2D scatter in exports).
+4. **Clustering:** **K-Means** with **k = 3** on the PCA space. The notebook also compares **GMM** and **DBSCAN** for the write-up; K-Means is the primary model for interpretability.
+5. **Labels:** Cluster display names from relative quantiles over speed, efficiency, and pause behavior.
+6. **Export:** Three JSON files under `dashboard/data/` for the dashboard (scatter, profiles, metadata).
 
-## Evaluation targets
+**Live classification** (browser -> backend -> same feature + model path) is planned; the Flask app currently exposes `/health` only until `game.js` / `game.wasm` and the classify route are wired up.
 
-| Metric | Target |
-|---|---|
-| Silhouette score | > 0.40 on held-out 20% test split |
-| Cluster count | >= 3 distinct behavioral groups |
-| RF accuracy (5-fold CV) | > 75% |
-| Think-aloud task completion | 100% within 2 minutes |
-| Likert interpretability score | >= 4.0 / 5.0 |

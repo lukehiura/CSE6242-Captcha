@@ -15,11 +15,6 @@ env/
 # ── Jupyter ────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# ── Generated notebook artifacts ─────────────────────────────────────────
-# notebook/output/ is the old export dir — no longer used
-notebook/output/
-
-
 # ── LaTeX build artifacts ─────────────────────────────────────────────────
 proposal/*.aux
 proposal/*.log
