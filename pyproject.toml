@@ -19,6 +19,7 @@ dependencies = [
     # Backend API
     "flask>=3.0",
     "flask-cors>=4.0",
+    "kneed>=0.8.6",
 ]
 
 [project.optional-dependencies]
