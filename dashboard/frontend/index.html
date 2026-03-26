@@ -3,26 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSE 6242 — CAPTCHA Behavioral Analysis</title>
+  <title>PCA Scatter Dashboard</title>
   <style>
     body {
-      font-family: system-ui, sans-serif;
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+      color: #111;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    /* Container for scatter plot */
+    #scatter-container {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: #0f1117;
-      color: #e8eaf0;
+      margin: 20px auto;
+      width: 90%;
+      max-width: 600px;
     }
-    h1 { font-size: 1.4rem; font-weight: 600; }
-    p  { color: #8891b0; margin-top: 8px; font-size: 0.9rem; }
+
+    /* Actual scatter div / SVG placeholder */
+    #scatter {
+      width: 100%;
+      height: 600px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      position: relative;
+    }
   </style>
 </head>
 <body>
-  <div style="text-align:center">
-    <h1>CSE 6242 — CAPTCHA Behavioral Analysis</h1>
-    <p>Dashboard coming soon.</p>
+  <div id="scatter-container">
+    <h2>PCA Scatter Plot (PC1 vs PC2)</h2>
+    <div id="scatter"></div>
   </div>
+
+  <!-- Load D3.js / PCA Scatter -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="js/pca_scatter.js"></script>
 </body>
 </html>
