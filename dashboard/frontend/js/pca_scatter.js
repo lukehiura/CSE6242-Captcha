@@ -1,15 +1,19 @@
-// ===================== PCA Scatter - Interactive Cluster Highlight ===================== //
 Promise.all([
   d3.json("data/scatter_points.json"),
   d3.json("data/cluster_meta.json")
 ]).then(([points, clusters]) => {
 
-  const width = 600, height = 600, margin = {top:90, right:90, bottom:90, left:90};
+  const width = 600, height = 600;
+  const margin = {top:60, right:60, bottom:60, left:60};
 
-  // Filter out outliers
-  points = points.filter(d => d.is_outlier !== 4);
+  const radarSize = 350;
+  const radarRadius = 130;
+  const features = ["speed_mean","path_efficiency","pause_rate","duration"];
 
-  // Map cluster numbers to names
+  // ---------------- DATA ----------------
+  points = points.filter(d=>!d.is_outlier);
+  points.forEach(d=>d.duration=Math.log(d.duration));
+
   const clusterNames = {
     0: "Fast-Balanced-Fluid",
     1: "Slow-Balanced-Fluid",
@@ -17,136 +21,163 @@ Promise.all([
     3: "Moderate-Direct-Fluid"
   };
 
-  // Cluster color map (categorical, soft palette)
   const colorPalette = ["#4daf4a","#377eb8","#ff7f00","#e41a1c"];
   const colorMap = {};
-  clusters.forEach((c,i) => colorMap[c.id] = colorPalette[i % colorPalette.length]);
+  clusters.forEach((c,i)=>colorMap[c.id]=colorPalette[i]);
 
-  // Compute square scales
-  const xExtent = d3.extent(points, d => d.pca_x);
-  const yExtent = d3.extent(points, d => d.pca_y);
-  const minVal = Math.min(xExtent[0], yExtent[0]);
-  const maxVal = Math.max(xExtent[1], yExtent[1]);
+  // ---------------- FEATURE NORMALIZATION ----------------
+  const featureScales = {};
+  features.forEach(f => {
+    const ext = d3.extent(points, d=>d[f]);
+    featureScales[f] = d3.scaleLinear().domain(ext).range([0,1]);
+  });
 
-  const x = d3.scaleLinear()
-              .domain([minVal, maxVal])
-              .range([margin.left, width - margin.right]);
+  // ---------------- PCA ----------------
+  const extent = d3.extent([...points.map(d=>d.pca_x), ...points.map(d=>d.pca_y)]);
+  const x = d3.scaleLinear().domain(extent).range([margin.left, width-margin.right]);
+  const y = d3.scaleLinear().domain(extent).range([height-margin.bottom, margin.top]);
 
-  const y = d3.scaleLinear()
-              .domain([minVal, maxVal])
-              .range([height - margin.bottom, margin.top]);
+  const svg = d3.select("#scatter-plot")
+    .append("svg")
+    .attr("width",width)
+    .attr("height",height);
 
-  // SVG container
-  const svg = d3.select("#scatter")
-                .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .style("background","#f9f9f9");
+  svg.append("g")
+    .attr("transform",`translate(0,${height-margin.bottom})`)
+    .call(d3.axisBottom(x));
 
-  // Axes
-  const xAxis = svg.append("g")
-     .attr("transform", `translate(0,${height - margin.bottom})`)
-     .call(d3.axisBottom(x));
+  svg.append("g")
+    .attr("transform",`translate(${margin.left},0)`)
+    .call(d3.axisLeft(y));
 
-  const yAxis = svg.append("g")
-     .attr("transform", `translate(${margin.left},0)`)
-     .call(d3.axisLeft(y));
-
-  // Axis labels
-  // X-axis: Slow ← PC1 → Fast
-  svg.append("text")
-     .attr("x", width/2)
-     .attr("y", height - margin.bottom/2)
-     .attr("text-anchor","middle")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","1rem")
-     .text("PC1");
-	 
-  svg.append("text")
-     .attr("x", margin.left)
-     .attr("y", height - margin.bottom/2)
-     .attr("text-anchor","start")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","0.75rem")
-     .text("Slow Speed");
-	 
-  svg.append("text")
-     .attr("x", width - margin.right)
-     .attr("y", height - margin.bottom/2)
-     .attr("text-anchor","end")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","0.75rem")
-     .text("Fast Speed");
-
-  // Y-axis: Length ↑ PC2 ↓ Efficient
-  svg.append("text")
-     .attr("x", -height/2)
-     .attr("y", margin.left/2)
-     .attr("text-anchor","middle")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","1rem")
-     .attr("transform","rotate(-90)")
-     .text("PC2");
-
-  svg.append("text")
-     .attr("x", -height+margin.bottom)
-     .attr("y", margin.left/2)
-     .attr("text-anchor","start")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","0.75rem")
-     .attr("transform","rotate(-90)")
-     .text("Efficient Path");
-	 
-  svg.append("text")
-     .attr("x", -margin.top)
-     .attr("y", margin.left/2)
-     .attr("text-anchor","end")
-	 .attr("dominant-baseline","middle")
-     .style("font-size","0.75rem")
-     .attr("transform","rotate(-90)")
-     .text("Long Path");
-	 
-
-  // Tooltip div
-  const tooltip = d3.select("body")
-                    .append("div")
-                    .style("position", "absolute")
-                    .style("padding", "6px")
-                    .style("background", "rgba(0,0,0,0.7)")
-                    .style("color", "white")
-                    .style("border-radius", "4px")
-                    .style("pointer-events", "none")
-                    .style("opacity", 0)
-                    .style("font-size", "0.85rem");
-
-  // Draw dots
   const circles = svg.selectAll("circle")
     .data(points)
     .enter()
     .append("circle")
-    .attr("cx", d => x(d.pca_x))
-    .attr("cy", d => y(d.pca_y))
-    .attr("r", 1)
-    .attr("fill", d => colorMap[d.cluster])
-    .attr("opacity", 0.4);
+    .attr("cx",d=>x(d.pca_x))
+    .attr("cy",d=>y(d.pca_y))
+    .attr("r",3)
+    .attr("fill",d=>colorMap[d.cluster])
+    .attr("opacity",0.4);
 
-  // Hover effect: highlight cluster
-  circles.on("mouseover", (event,d) => {
-      circles.attr("opacity", o => o.cluster === d.cluster ? 1 : 0.15);
+  // ---------------- CENTROIDS ----------------
+  const centroids = d3.rollups(
+    points,
+    v => ({
+      x:d3.mean(v,d=>d.pca_x),
+      y:d3.mean(v,d=>d.pca_y),
+      avgZ: features.map(f => d3.mean(v,d=>d[f]))
+    }),
+    d=>d.cluster
+  );
 
-      tooltip.transition().duration(200).style("opacity", 0.9);
-      tooltip.html(`
-        <strong>Cluster:</strong> ${clusterNames[d.cluster]}<br/>
-        <strong>Game type:</strong> ${d.game_type}<br/>
-        <strong>PC1:</strong> ${d.pca_x.toFixed(2)}<br/>
-        <strong>PC2:</strong> ${d.pca_y.toFixed(2)}
-      `)
-      .style("left", (event.pageX + 10) + "px")
-      .style("top", (event.pageY - 28) + "px");
+  // ---------------- RADAR ----------------
+  const radarSvg = d3.select("#radar")
+    .append("svg")
+    .attr("width",radarSize)
+    .attr("height",radarSize)
+    .append("g")
+    .attr("transform",`translate(${radarSize/2},${radarSize/2})`);
+
+  const angleSlice = (2*Math.PI)/features.length;
+
+  // Radar rings
+  const ringCount = 4;
+  for(let i=1;i<=ringCount;i++){
+    radarSvg.append("circle")
+      .attr("r", radarRadius*(i/ringCount))
+      .attr("fill","none")
+      .attr("stroke","#ccc")
+      .attr("stroke-dasharray","2,2")
+      .attr("opacity",0.5);
+  }
+
+  // Radar axes
+  features.forEach((f,i)=>{
+    const angle = i*angleSlice - Math.PI/2;
+    radarSvg.append("line")
+      .attr("x1",0)
+      .attr("y1",0)
+      .attr("x2",Math.cos(angle)*radarRadius)
+      .attr("y2",Math.sin(angle)*radarRadius)
+      .attr("stroke","#999")
+      .attr("stroke-width",1);
+
+    radarSvg.append("text")
+      .attr("x",Math.cos(angle)*(radarRadius+10))
+      .attr("y",Math.sin(angle)*(radarRadius+10))
+      .attr("text-anchor","middle")
+      .attr("alignment-baseline","middle")
+      .style("font-size","0.65rem")
+      .text(f);
+  });
+
+  function radarLine(values){
+    const closed = [...values, values[0]];
+    return d3.lineRadial()
+      .radius((v,i)=>featureScales[features[i%features.length]](v)*radarRadius)
+      .angle((_,i)=>i*angleSlice)(closed);
+  }
+
+  radarSvg.selectAll(".centroid-radar")
+    .data(centroids)
+    .enter()
+    .append("path")
+    .attr("class","centroid-radar")
+    .attr("d",d=>radarLine(d[1].avgZ))
+    .attr("fill","none")
+    .attr("stroke",d=>colorMap[d[0]])
+    .attr("stroke-width",2)
+    .attr("opacity",0.5);
+
+  function updateRadar(point){
+    radarSvg.selectAll(".point-radar").remove();
+
+    radarSvg.append("path")
+      .attr("class","point-radar")
+      .attr("d",radarLine(features.map(f=>point[f])))
+      .attr("fill",colorMap[point.cluster])
+      .attr("stroke",colorMap[point.cluster])
+      .attr("opacity",0.4);
+  }
+
+  // ---------------- LEGEND ----------------
+  const legend = d3.select("#legend");
+
+  clusters.forEach(c=>{
+    const row = legend.append("div");
+
+    row.append("span")
+      .style("display","inline-block")
+      .style("width","12px")
+      .style("height","12px")
+      .style("background",colorMap[c.id])
+      .style("margin-right","6px");
+
+    row.append("span").text(clusterNames[c.id]);
+
+    row.on("click",()=>{
+      circles.attr("opacity",d=>d.cluster===c.id?1:0.05);
+      radarSvg.selectAll(".centroid-radar")
+        .attr("opacity",d=>d[0]===c.id?0.8:0.1);
+    });
+  });
+
+  // ---------------- TOOLTIP ----------------
+  const tooltip = d3.select("#tooltip");
+
+  circles.on("mouseover",(event,d)=>{
+    circles.attr("opacity",o=>o.cluster===d.cluster?1:0.1);
+    updateRadar(d);
+    tooltip.style("opacity",1)
+      .html(`Cluster: ${clusterNames[d.cluster]}`)
+      .style("left",(event.pageX+10)+"px")
+      .style("top",(event.pageY-20)+"px");
   })
-  .on("mouseout", () => {
-      circles.attr("opacity", 0.4);
-      tooltip.transition().duration(200).style("opacity", 0);
+  .on("mouseout",()=>{
+    circles.attr("opacity",0.4);
+    radarSvg.selectAll(".point-radar").remove();
+    tooltip.style("opacity",0);
   });
 
 });
