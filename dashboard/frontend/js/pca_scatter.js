@@ -32,7 +32,7 @@ Promise.all([
     featureScales[f] = d3.scaleLinear().domain(ext).range([0,1]);
   });
 
-  // ---------------- PCA ----------------
+  // ---------------- PCA SCATTER ----------------
   const extent = d3.extent([...points.map(d=>d.pca_x), ...points.map(d=>d.pca_y)]);
   const x = d3.scaleLinear().domain(extent).range([margin.left, width-margin.right]);
   const y = d3.scaleLinear().domain(extent).range([height-margin.bottom, margin.top]);
@@ -112,14 +112,17 @@ Promise.all([
       .text(f);
   });
 
+  // Radar line generator
   function radarLine(values){
-    const closed = [...values, values[0]];
+    const scaled = values.map((v,i)=>featureScales[features[i]](v));
+    const closed = [...scaled, scaled[0]];
     return d3.lineRadial()
-      .radius((v,i)=>featureScales[features[i%features.length]](v)*radarRadius)
+      .radius(v=>v*radarRadius)
       .angle((_,i)=>i*angleSlice)(closed);
   }
 
-  radarSvg.selectAll(".centroid-radar")
+  // Draw centroid outlines
+  const centroidPaths = radarSvg.selectAll(".centroid-radar")
     .data(centroids)
     .enter()
     .append("path")
@@ -130,8 +133,10 @@ Promise.all([
     .attr("stroke-width",2)
     .attr("opacity",0.5);
 
+  // Update radar for hovered point
   function updateRadar(point){
     radarSvg.selectAll(".point-radar").remove();
+    centroidPaths.attr("opacity", d => d[0] === point.cluster ? 1 : 0.1);
 
     radarSvg.append("path")
       .attr("class","point-radar")
@@ -141,25 +146,40 @@ Promise.all([
       .attr("opacity",0.4);
   }
 
-  // ---------------- LEGEND ----------------
+// ---------------- LEGEND ----------------
   const legend = d3.select("#legend");
 
   clusters.forEach(c=>{
-    const row = legend.append("div");
+    const row = legend.append("div")
+      .style("cursor","pointer")
+      .style("margin-bottom","4px");
 
-    row.append("span")
+    const colorBox = row.append("span")
       .style("display","inline-block")
       .style("width","12px")
       .style("height","12px")
       .style("background",colorMap[c.id])
       .style("margin-right","6px");
 
-    row.append("span").text(clusterNames[c.id]);
+    const label = row.append("span")
+      .text(clusterNames[c.id])
+      .style("font-weight","normal")
+      .style("color","#000");
 
     row.on("click",()=>{
+      // Update scatter circles
       circles.attr("opacity",d=>d.cluster===c.id?1:0.05);
-      radarSvg.selectAll(".centroid-radar")
-        .attr("opacity",d=>d[0]===c.id?0.8:0.1);
+
+      // Update radar centroids
+      centroidPaths.attr("opacity", d => d[0]===c.id?0.8:0.1);
+
+      // Update legend styling
+      legend.selectAll("div span:nth-child(2)")
+        .style("font-weight","normal")
+        .style("color","#000");
+
+      label.style("font-weight","bold")
+           .style("color", colorMap[c.id]);
     });
   });
 
@@ -170,12 +190,13 @@ Promise.all([
     circles.attr("opacity",o=>o.cluster===d.cluster?1:0.1);
     updateRadar(d);
     tooltip.style("opacity",1)
-      .html(`Cluster: ${clusterNames[d.cluster]}`)
+      .html(`Cluster: ${clusterNames[d.cluster]}<br/>PC1: ${d.pca_x.toFixed(2)}<br/>PC2: ${d.pca_y.toFixed(2)}`)
       .style("left",(event.pageX+10)+"px")
       .style("top",(event.pageY-20)+"px");
   })
   .on("mouseout",()=>{
     circles.attr("opacity",0.4);
+    centroidPaths.attr("opacity",0.5);
     radarSvg.selectAll(".point-radar").remove();
     tooltip.style("opacity",0);
   });
