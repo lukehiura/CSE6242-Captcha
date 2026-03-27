@@ -133,23 +133,10 @@ Promise.all([
     .attr("stroke-width",2)
     .attr("opacity",0.5);
 
-  // Update radar for hovered point
-  function updateRadar(point){
-    radarSvg.selectAll(".point-radar").remove();
-    centroidPaths.attr("opacity", d => d[0] === point.cluster ? 1 : 0.1);
-
-    radarSvg.append("path")
-      .attr("class","point-radar")
-      .attr("d",radarLine(features.map(f=>point[f])))
-      .attr("fill",colorMap[point.cluster])
-      .attr("stroke",colorMap[point.cluster])
-      .attr("opacity",0.4);
-  }
-
-// ---------------- LEGEND ----------------
+  // ---------------- LEGEND ----------------
   const legend = d3.select("#legend");
 
-  clusters.forEach(c=>{
+  const legendRows = clusters.map(c => {
     const row = legend.append("div")
       .style("cursor","pointer")
       .style("margin-bottom","4px");
@@ -166,38 +153,60 @@ Promise.all([
       .style("font-weight","normal")
       .style("color","#000");
 
-    row.on("click",()=>{
-      // Update scatter circles
-      circles.attr("opacity",d=>d.cluster===c.id?1:0.05);
+    return {clusterId: c.id, row, label};
+  });
 
-      // Update radar centroids
-      centroidPaths.attr("opacity", d => d[0]===c.id?0.8:0.1);
+  // Update radar + legend on hover
+  function highlightCluster(clusterId){
+    // Scatter
+    circles.attr("opacity", d=>d.cluster===clusterId?1:0.1);
 
-      // Update legend styling
-      legend.selectAll("div span:nth-child(2)")
-        .style("font-weight","normal")
-        .style("color","#000");
+    // Radar
+    centroidPaths.attr("opacity", d=>d[0]===clusterId?1:0.1);
 
-      label.style("font-weight","bold")
-           .style("color", colorMap[c.id]);
+    // Legend
+    legendRows.forEach(l=>{
+      l.label.style("font-weight", l.clusterId===clusterId?"bold":"normal")
+             .style("color", l.clusterId===clusterId?colorMap[l.clusterId]:"#000");
     });
+  }
+
+  function resetHighlight(){
+    circles.attr("opacity",0.4);
+    centroidPaths.attr("opacity",0.5);
+    legendRows.forEach(l=>{
+      l.label.style("font-weight","normal")
+             .style("color","#000");
+    });
+  }
+
+  // ---------------- INTERACTIVITY ----------------
+  circles.on("mouseover", (event,d)=>{
+    highlightCluster(d.cluster);
+    // Radar polygon for the hovered point
+    radarSvg.selectAll(".point-radar").remove();
+    radarSvg.append("path")
+      .attr("class","point-radar")
+      .attr("d",radarLine(features.map(f=>d[f])))
+      .attr("fill",colorMap[d.cluster])
+      .attr("stroke",colorMap[d.cluster])
+      .attr("opacity",0.4);
+  }).on("mouseout", resetHighlight);
+
+  legendRows.forEach(l=>{
+    l.row.on("mouseover", ()=>{
+      highlightCluster(l.clusterId);
+    }).on("mouseout", resetHighlight);
   });
 
   // ---------------- TOOLTIP ----------------
   const tooltip = d3.select("#tooltip");
-
-  circles.on("mouseover",(event,d)=>{
-    circles.attr("opacity",o=>o.cluster===d.cluster?1:0.1);
-    updateRadar(d);
+  circles.on("mouseover.tooltip",(event,d)=>{
     tooltip.style("opacity",1)
       .html(`Cluster: ${clusterNames[d.cluster]}<br/>PC1: ${d.pca_x.toFixed(2)}<br/>PC2: ${d.pca_y.toFixed(2)}`)
       .style("left",(event.pageX+10)+"px")
       .style("top",(event.pageY-20)+"px");
-  })
-  .on("mouseout",()=>{
-    circles.attr("opacity",0.4);
-    centroidPaths.attr("opacity",0.5);
-    radarSvg.selectAll(".point-radar").remove();
+  }).on("mouseout.tooltip", ()=>{
     tooltip.style("opacity",0);
   });
 
