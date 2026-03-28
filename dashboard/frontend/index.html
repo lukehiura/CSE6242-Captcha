@@ -1,237 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PCA Scatter Dashboard</title>
-  <style>
-	/* -------------------- GLOBAL -------------------- */
-	html, body {
-	  margin: 0;
-	  padding: 0;
-	  font-family: sans-serif;
-	  background: #f9f9f9;
-	  color: #111;
-	  height: 100%;
-	}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCA Scatter Dashboard</title>
+<style>
+/* -------------------- GLOBAL -------------------- */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background: #f9f9f9;
+  color: #111;
+  height: 100%;
+}
 
-	/* -------------------- DASHBOARD GRID -------------------- */
-	#dashboard {
-	  width: 90vw;
-	  max-width: 1600px;
-	  margin: auto;
-	  display: grid;
-	  grid-template-columns: repeat(16, 1fr); /* 16-column grid */
-	  grid-template-rows: repeat(9, 1fr);     /* 9-row grid */
-	  gap: 10px;
-	  min-height: 600px;
-	}
+/* -------------------- DASHBOARD GRID -------------------- */
+#dashboard {
+  width: 90vw;
+  max-width: 1600px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: repeat(16, 1fr); /* 16-column grid */
+  grid-template-rows: repeat(9, 1fr); /* 9-row grid */
+  gap: 10px;
+  min-height: 600px;
+}
 
-	/* -------------------- WRAPPERS & HEADERS -------------------- */
-	#scatter-wrapper, #radar-wrapper, #clusters-wrapper {
-	  display: grid;
-	  grid-template-rows: 50px 1fr; /* fixed header height, rest fills */
-	  background: transparent;
-	  border-radius: 8px;
-	  //box-shadow: 0 0 5px rgba(0,0,0,0.1);
-	  overflow: hidden;
-	}
+/* -------------------- WRAPPERS & HEADERS -------------------- */
+#scatter-wrapper, #radar-wrapper, #trajectory-wrapper  {
+  display: grid;
+  grid-template-rows: 50px 1fr; /* fixed header height, rest fills */
+  background: transparent;
+  border-radius: 8px;
+  //box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+#scatter-wrapper h3, #radar-wrapper h3,  #trajectory-wrapper h3 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  font-size: 1.2rem;
+}
 
-	#scatter-wrapper h3,
-	#radar-wrapper h3,
-	#clusters-wrapper h3 {
-	  display: flex;
-	  justify-content: center;
-	  align-items: center;
-	  margin: 0;
-	  font-size: 1.2rem;
-	}
+/* -------------------- SCATTER -------------------- */
+#scatter-wrapper {
+  grid-column: 1 / span 9;
+  grid-row: 1 / span 9;
+  padding: 10px;
+}
+#scatter-plot {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+#scatter-plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
-	/* -------------------- SCATTER -------------------- */
-	#scatter-wrapper {
-	  grid-column: 1 / span 8;
-	  grid-row: 1 / span 9;
-	  padding: 10px;
-	}
+/* -------------------- RADAR -------------------- */
+#radar-wrapper {
+  grid-column: 10 / span 4;
+  grid-row: 1 / span 4;
+  padding: 10px;
+}
+#radar-wrapper .info {
+  text-align: center;
+  margin-top: 4px;
+}
+#radar {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+}
+#radar svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
-	#scatter-plot {
-	  width: 100%;
-	  aspect-ratio: 1 / 1;
-	  display: flex;
-	  justify-content: center;
-	  align-items: center;
-	  overflow: hidden;
-	  position: relative;
-	}
+/* -------------------- TRAJECTORY -------------------- */
+#trajectory-wrapper {
+  grid-column: 10 / span 4;
+  grid-row: 5 / span 4;
+  padding: 10px;
+}
+#trajectory-plot {
+  width: 100%;
+  height: 100%; /* fill wrapper */
+  position: relative;
+}
+#trajectory-plot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
-	#scatter-plot svg {
-	  width: 100%;
-	  height: 100%;
-	  display: block;
-	}
+/* -------------------- TOOLTIP -------------------- */
+#tooltip {
+  position: absolute;
+  padding: 6px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  font-size: 0.85rem;
+  z-index: 10;
+}
 
-	/* -------------------- RADAR -------------------- */
-	#radar-wrapper {
-	  grid-column: 9 / span 3;
-	  grid-row: 1 / span 4;
-	  padding: 10px;
-	}
+/* -------------------- LEGEND TEXT -------------------- */
+.legend-text {
+/*  font-family: "Arial, sans-serif"; */
+  font-size: 12px;
+  fill: #000;                        
+  font-weight: normal;
+}
 
-	#radar-wrapper .info {
-	  text-align: center;
-	  margin-top: 4px;
-	}
-
-	#radar {
-	  width: 100%;
-	  aspect-ratio: 1 / 1;
-	  display: flex;
-	  justify-content: center;
-	  align-items: center;
-	  overflow: hidden;
-	  position: relative;
-	}
-
-	#radar svg {
-	  width: 100%;
-	  height: 100%;
-	  display: block;
-	}
-
-	/* -------------------- TRAJECTORY -------------------- */
-	#trajectory-wrapper {
-	  grid-column: 9 / span 3;
-	  grid-row: 4 / span 4;
-	  padding: 10px;
-	}
-
-	#trajectory-wrapper h3 {
-	  margin: 0 0 10px 0;
-	  font-size: 1.2rem;
-	  text-align: center;
-	}
-
-	#trajectory-plot {
-	  width: 100%;
-	  height: 100%; /* fill wrapper */
-	  position: relative;
-	}
-
-	#trajectory-plot svg {
-	  width: 100%;
-	  height: 100%;
-	  display: block;
-	}
-	
-	/* -------------------- CLUSTERS LEGEND -------------------- */
-	#clusters-wrapper {
-	  grid-column: 13 / span 3;
-	  grid-row: 1 / span 4;
-	  padding: 10px;
-	  overflow-y: auto;
-	}
-
-	#legend {
-	  font-size: 0.8rem;
-	}
-
-	.legend-row {
-	  display: flex;
-	  align-items: center;
-	  cursor: pointer;
-	  margin-bottom: 4px;
-	}
-
-	.legend-row span.color-box {
-	  display: inline-block;
-	  width: 12px;
-	  height: 12px;
-	  margin-right: 6px;
-	}
-
-	.legend-row span.label {
-	  flex: 1;
-	}
-	
-
-	/* -------------------- GAME FILTER -------------------- */	
-	#game-filter {
-	  font-size: 0.8rem;
-	}
-
-	.game-row {
-	  display: flex;
-	  align-items: center;
-	  cursor: pointer;
-	  margin-bottom: 4px;
-	}
-
-	.game-row span.label {
-	  flex: 1;
-	}
-
-	/* -------------------- Tooltip -------------------- */
-	#tooltip {
-	  position: absolute;
-	  padding: 6px;
-	  background: rgba(0,0,0,0.7);
-	  color: white;
-	  border-radius: 4px;
-	  pointer-events: none;
-	  opacity: 0;
-	  font-size: 0.85rem;
-	  z-index: 10;
-	}
-  </style>
+</style>
 </head>
 <body>
-
-  <div id="dashboard">
-
-    <!-- LEFT: PCA Scatter -->
-    <div id="scatter-wrapper">
-      <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
-      <div id="scatter-plot"></div>
-    </div>
-
-    <!-- RADAR -->
-    <div id="radar-wrapper">
-      <h3>Behavior Profile Radar</h3>
-      <div id="radar"></div>
-      <div class="info">
-		<span style="color:#000;"><b>Solid outline</b></span>: cluster centroid averages <br>
-		<span style="color:#000; background-color:#ddd; padding:2px 4px; border-radius:2px;">Filled polygon</span>: selected point behavior
-      </div>
-    </div>
-
-    <!-- CLUSTERS -->
-    <div id="clusters-wrapper">
-      <h3>Cluster Labels</h3>
-      <div id="legend"></div>
-    </div>
-
-	<!-- MOUSE TRAJECTORY CONTAINER -->
-	<div id="trajectory-wrapper">
-	  <h3>Mouse Trajectory</h3>
-	  <div id="trajectory-plot"></div>
-	</div>
-	
-	<div id="clusters-wrapper">
-	  <h3>Cluster Labels</h3>
-	  <div id="legend"></div>
-
-	  <!-- GAME TYPE FILTER -->
-	  <h3 style="margin-top:10px;">Game Type</h3>
-	  <div id="game-filter"></div>
-	</div>
+<div id="dashboard">
+  <!-- LEFT: PCA Scatter -->
+  <div id="scatter-wrapper">
+    <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
+    <div id="scatter-plot"></div>
   </div>
-  
-  <div id="tooltip"></div>
+  <!-- MOUSE TRAJECTORY CONTAINER -->
+  <div id="trajectory-wrapper">
+    <h3>Mouse Trajectory</h3>
+    <div id="trajectory-plot"></div>
+  </div>
+  <!-- RADAR -->
+  <div id="radar-wrapper">
+    <h3>Behavior Profile Radar</h3>
+    <div id="radar"></div>
+<!--     <div class="info">
+      <span style="color:#000;"><b>Solid outline</b></span>: cluster centroid averages <br>
+      <span style="color:#000; background-color:#ddd; padding:2px 4px; border-radius:2px;">Filled polygon</span>: selected point behavior
+    </div> -->
+  </div>
 
-  <!-- D3 -->
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="js/pca_scatter.js"></script>
-  <script src="js/mouse_trajectory.js"></script>
 
+</div>
+
+<div id="tooltip"></div>
+
+<!-- D3 -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="js/pca_scatter.js"></script>
+<script src="js/mouse_trajectory.js"></script>
 </body>
 </html>

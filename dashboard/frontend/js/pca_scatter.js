@@ -3,6 +3,7 @@ Promise.all([
   d3.json("data/cluster_meta.json")
 ]).then(([points, clusters]) => {
 
+  // ---------------- FEATURES ----------------
   const features = ["speed_mean","path_efficiency","pause_rate","duration"];
 
   // ---------------- DATA ----------------
@@ -20,15 +21,10 @@ Promise.all([
   const colorMap = {};
   clusters.forEach((c,i)=> colorMap[c.id] = colorPalette[i]);
 
-  // ---------------- STATE ----------------
-  let activeGame = null;
-  let activeCluster = null;
-  let filteredPoints = [...points];
-
   // ---------------- FEATURE NORMALIZATION ----------------
   const featureScales = {};
   features.forEach(f => {
-    const ext = d3.extent(points, d=>d[f]);
+    const ext = d3.extent(points, d => d[f]);
     featureScales[f] = d3.scaleLinear().domain(ext).range([0,1]);
   });
 
@@ -36,18 +32,25 @@ Promise.all([
   const scatterDiv = document.getElementById("scatter-plot");
   const width = scatterDiv.clientWidth;
   const height = scatterDiv.clientHeight;
-  const margin = {top: 60, right: 60, bottom: 60, left: 60};
+  const margin = {top: 50, right: 50, bottom: 50, left: 50};
 
-  const extent = d3.extent([...points.map(d=>d.pca_x), ...points.map(d=>d.pca_y)]);
-  const x = d3.scaleLinear().domain(extent).range([margin.left, width-margin.right]);
-  const y = d3.scaleLinear().domain(extent).range([height-margin.bottom, margin.top]);
+  const extent = d3.extent([...points.map(d => d.pca_x), ...points.map(d => d.pca_y)]);
+  const x = d3.scaleLinear().domain(extent).range([margin.left, width - margin.right]);
+  const y = d3.scaleLinear().domain(extent).range([height - margin.bottom, margin.top]);
+
+  const xCenter = margin.left + (width - margin.left - margin.right) / 2;
+  const yCenter = margin.top + (height - margin.top - margin.bottom) / 2;
+  const labelDistFromAxes = 2*margin.left / 3;
 
   const svg = d3.select("#scatter-plot")
     .append("svg")
-    .attr("viewBox", `0 0 ${width} ${height}`);
+    .attr("width", "100%")
+    .attr("height", "auto")
+    .attr("viewBox", `0 0 ${width} ${height}`)
+    .attr("preserveAspectRatio", "xMidYMin meet");
 
   svg.append("g")
-    .attr("transform", `translate(0,${height-margin.bottom})`)
+    .attr("transform", `translate(0,${height - margin.bottom})`)
     .call(d3.axisBottom(x));
 
   svg.append("g")
@@ -58,242 +61,258 @@ Promise.all([
     .data(points)
     .enter()
     .append("circle")
-    .attr("cx", d=>x(d.pca_x))
-    .attr("cy", d=>y(d.pca_y))
+    .attr("cx", d => x(d.pca_x))
+    .attr("cy", d => y(d.pca_y))
     .attr("r", 3)
-    .attr("fill", d=>colorMap[d.cluster])
+    .attr("fill", d => colorMap[d.cluster])
     .attr("opacity", 0.4);
+
+  svg.append("text")
+    .attr("x", xCenter)
+    .attr("y", height - margin.bottom + labelDistFromAxes)
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .text("PC1");
+
+  svg.append("text")
+    .attr("transform", `translate(${margin.left - labelDistFromAxes}, ${yCenter}) rotate(-90)`)
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .text("PC2");
+
+  // ---------------- CENTROIDS ----------------
+  const centroids = d3.rollups(
+    points,
+    v => ({
+      x: d3.mean(v, d => d.pca_x),
+      y: d3.mean(v, d => d.pca_y),
+      avgZ: features.map(f => d3.mean(v, d => d[f]))
+    }),
+    d => d.cluster
+  );
+
+  // ---------------- PCA LEGEND ----------------
+  const squareSize = 12;
+  const textGap = 6;
+  const fontSize = 12;
+  const legendItemSpacingY = fontSize * 1.5;
+
+  const tempText = svg.append("text")
+    .attr("class", "legend-text-temp")
+    .style("font-size", `${fontSize}px`)
+    .attr("visibility", "hidden");
+
+  const maxTextWidth = d3.max(clusters.map(c => {
+    tempText.text(clusterNames[c.id]);
+    return tempText.node().getBBox().width;
+  }));
+  tempText.remove();
+
+  const legendWidth = squareSize + textGap + maxTextWidth;
+  const legendHeight = clusters.length * legendItemSpacingY;
+
+  const pcaLegendGroup = svg.append("g")
+    .attr("class", "pca-legend")
+    .attr("transform", `translate(${width - margin.right - legendWidth}, ${height - margin.bottom - legendHeight})`);
+
+  clusters.forEach((c, i) => {
+    const g = pcaLegendGroup.append("g")
+      .attr("class", "legend-item")
+      .attr("data-cluster", c.id)
+      .attr("transform", `translate(0, ${i * legendItemSpacingY})`)
+      .style("cursor", "pointer");
+
+    g.append("rect")
+      .attr("width", squareSize)
+      .attr("height", squareSize)
+      .attr("x", 0)
+      .attr("y", -squareSize / 2)
+      .attr("fill", colorMap[c.id]);
+
+    g.append("text")
+      .text(clusterNames[c.id])
+      .attr("x", squareSize + textGap)
+      .attr("y", 0)
+      .attr("dominant-baseline", "middle")
+      .attr("class", "legend-text");
+
+    g.on("mouseover", () => highlightCluster(c.id))
+     .on("mouseout", () => resetHighlight())
+     .on("click", () => highlightCluster(c.id));
+  });
 
   // ---------------- RADAR ----------------
   const radarContainer = d3.select("#radar");
-  const radarSize = Math.min(
-    radarContainer.node().clientWidth,
-    radarContainer.node().clientHeight
-  );
-  const radarRadius = radarSize / 2.5;
+  const wrapperWidth = radarContainer.node().clientWidth;
+  const wrapperHeight = radarContainer.node().clientHeight;
+  const radarMargin = { top: 20, right: 45, bottom: 70, left: 45 };
+  const innerWidth = wrapperWidth - radarMargin.left - radarMargin.right;
+  const innerHeight = wrapperHeight - radarMargin.top - radarMargin.bottom;
 
-  const radarSvg = radarContainer
+  const radarSize = Math.min(innerWidth, innerHeight);
+  const radarRadius = radarSize / 2;
+
+  const offsetX = radarMargin.left + (innerWidth - radarSize) / 2;
+  const offsetY = radarMargin.top + (innerHeight - radarSize) / 2;
+
+  const radarSvgRoot = radarContainer
     .append("svg")
-    .attr("viewBox", `-20 -20 ${radarSize+40} ${radarSize+40}`)
-    .append("g")
-    .attr("transform", `translate(${radarSize/2},${radarSize/2})`);
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${wrapperWidth} ${wrapperHeight}`)
+    .attr("preserveAspectRatio", "xMidYMid meet");
 
-  const angleSlice = (2*Math.PI)/features.length;
+  const radarSvg = radarSvgRoot.append("g")
+    .attr("transform", `translate(${offsetX + radarRadius}, ${offsetY + radarRadius})`);
 
-  // radar grid
-  for (let i = 1; i <= 4; i++) {
+  const angleSlice = (2 * Math.PI) / features.length;
+  const ringCount = 4;
+
+  for (let i = 1; i <= ringCount; i++) {
     radarSvg.append("circle")
-      .attr("r", radarRadius * (i/4))
-      .attr("fill","none")
-      .attr("stroke","#ccc")
-      .attr("stroke-dasharray","2,2");
+      .attr("r", radarRadius * (i / ringCount))
+      .attr("fill", "none")
+      .attr("stroke", "#ccc")
+      .attr("stroke-dasharray", "2,2");
   }
 
-  features.forEach((f,i)=>{
-    const angle = i*angleSlice - Math.PI/2;
+  features.forEach((f, i) => {
+    const angle = i * angleSlice - Math.PI / 2;
 
     radarSvg.append("line")
-      .attr("x2", Math.cos(angle)*radarRadius)
-      .attr("y2", Math.sin(angle)*radarRadius)
-      .attr("stroke","#999");
+      .attr("x1", 0).attr("y1", 0)
+      .attr("x2", Math.cos(angle) * radarRadius)
+      .attr("y2", Math.sin(angle) * radarRadius)
+      .attr("stroke", "#999");
 
     radarSvg.append("text")
-      .attr("x", Math.cos(angle)*(radarRadius+10))
-      .attr("y", Math.sin(angle)*(radarRadius+10))
-      .attr("text-anchor","middle")
-      .style("font-size","0.75rem")
+      .attr("x", Math.cos(angle) * (radarRadius + 12))
+      .attr("y", Math.sin(angle) * (radarRadius + 12))
+      .attr("text-anchor", "middle")
+      .attr("alignment-baseline", "middle")
+      .attr("class", "legend-text")
       .text(f);
   });
 
-  function radarLine(values){
-    const scaled = values.map((v,i)=>featureScales[features[i]](v));
+  function radarLine(values) {
+    const scaled = values.map((v, i) => featureScales[features[i]](v));
+    const closed = [...scaled, scaled[0]];
     return d3.lineRadial()
-      .radius(v=>v*radarRadius)
-      .angle((_,i)=>i*angleSlice)([...scaled, scaled[0]]);
+      .radius(v => v * radarRadius)
+      .angle((_, i) => i * angleSlice)(closed);
   }
 
-  // ---------------- CENTROIDS ----------------
-  function computeCentroids(data){
-    return d3.rollups(
-      data,
-      v => ({
-        avgZ: features.map(f => d3.mean(v,d=>d[f]))
-      }),
-      d => d.cluster
-    );
-  }
+  const centroidPaths = radarSvg.selectAll(".centroid-radar")
+    .data(centroids)
+    .enter()
+    .append("path")
+    .attr("class", "centroid-radar")
+    .attr("d", d => radarLine(d[1].avgZ))
+    .attr("fill", "none")
+    .attr("stroke", d => colorMap[d[0]])
+    .attr("stroke-width", 2)
+    .attr("opacity", 0.5);
 
-  function updateCentroids(){
-    const centroids = computeCentroids(filteredPoints);
+  // ---------------- BOTTOM INFO TEXT ----------------
+  const infoGroup = radarSvgRoot.append("g")
+    .attr("transform", `translate(${wrapperWidth/2}, ${wrapperHeight - radarMargin.bottom/3})`);
 
-    const paths = radarSvg.selectAll(".centroid-radar")
-      .data(centroids, d=>d[0]);
+  const infoText = infoGroup.append("text")
+    .attr("text-anchor", "middle")
+    .attr("class", "legend-text");
 
-    paths.exit().remove();
+  const line1 = infoText.append("tspan")
+    .text("Solid outline")
+    .attr("font-weight", "bold");
 
-    paths
-      .attr("d", d=>radarLine(d[1].avgZ))
-      .attr("stroke", d=>colorMap[d[0]])
-      .attr("stroke-width",2)
-      .attr("opacity",0.5);
+  infoText.append("tspan").text(": cluster centroid averages");
 
-    paths.enter()
-      .append("path")
-      .attr("class","centroid-radar")
-      .attr("fill","none")
-      .attr("stroke-width",2)
-      .attr("stroke", d=>colorMap[d[0]])
-      .attr("d", d=>radarLine(d[1].avgZ))
-      .attr("opacity",0.5);
-  }
+  const filledTspan = infoText.append("tspan")
+    .attr("x", 0)
+    .attr("dy", "1.5em")
+    .text("Filled polygon");
 
-  updateCentroids();
+  infoText.append("tspan").text(": selected point behavior");
 
-  // ---------------- FILTER ----------------
-  function applyFilters(){
-    filteredPoints = points.filter(d =>
-      (!activeGame || d.game_type === activeGame) &&
-      (!activeCluster || d.cluster === activeCluster)
-    );
+  // Background rectangle behind second line
+  const bbox = filledTspan.node().getBBox();
+  infoGroup.insert("rect", "text")
+    .attr("x", bbox.x - 4)
+    .attr("y", bbox.y - 2)
+    .attr("width", bbox.width + 8)
+    .attr("height", bbox.height + 4)
+    .attr("fill", "#ddd")
+    .attr("rx", 2);
 
-    circles.attr("display", d =>
-      filteredPoints.includes(d) ? null : "none"
-    );
-
-    updateCentroids();
-    resetHighlight();
-    updateLegendStyles();
-    updateGameStyles();
-  }
-
-  // ---------------- HOVER ----------------
-  function applyHover(clusterId, point=null){
-
-    circles.attr("opacity", d =>
-      (filteredPoints.includes(d) && d.cluster === clusterId) ? 1 :
-      (filteredPoints.includes(d) ? 0.1 : 0)
-    );
-
-    radarSvg.selectAll(".centroid-radar")
-      .attr("opacity", d => d[0] === clusterId ? 1 : 0.1)
-      .attr("stroke-width", d => d[0] === clusterId ? 3 : 2);
+  // ---------------- HIGHLIGHT FUNCTIONS ----------------
+  function highlightCluster(clusterId) {
+    circles.attr("opacity", d => d.cluster === clusterId ? 1 : 0.1);
+    centroidPaths.attr("opacity", p => p[0] === clusterId ? 1 : 0.1);
 
     radarSvg.selectAll(".point-radar").remove();
+    radarSvg.append("path")
+      .attr("class","point-radar")
+      .attr("d", radarLine(centroids.find(d => d[0] === clusterId)[1].avgZ))
+      .attr("fill", colorMap[clusterId])
+      .attr("stroke", colorMap[clusterId])
+      .attr("opacity", 0.4);
 
-    if (point){
-      radarSvg.append("path")
-        .attr("class","point-radar")
-        .attr("d", radarLine(features.map(f=>point[f])))
-        .attr("fill", colorMap[clusterId])
-        .attr("stroke", colorMap[clusterId])
-        .attr("opacity",0.4);
-    }
+    svg.selectAll(".pca-legend .legend-item text")
+      .style("font-weight", "normal")
+      .style("fill", "#000");
+
+    svg.select(`.pca-legend .legend-item[data-cluster='${clusterId}'] text`)
+      .style("font-weight", "bold")
+      .style("fill", colorMap[clusterId]);
   }
 
-  function resetHighlight(){
-    circles.attr("opacity",0.4);
-
-    radarSvg.selectAll(".centroid-radar")
-      .attr("opacity",0.5)
-      .attr("stroke-width",2);
+  function highlightPoint(point) {
+    circles.attr("opacity", o => o.cluster === point.cluster ? 1 : 0.1);
+    centroidPaths.attr("opacity", p => p[0] === point.cluster ? 1 : 0.1);
 
     radarSvg.selectAll(".point-radar").remove();
+    radarSvg.append("path")
+      .attr("class","point-radar")
+      .attr("d", radarLine(features.map(f => point[f])))
+      .attr("fill", colorMap[point.cluster])
+      .attr("stroke", colorMap[point.cluster])
+      .attr("opacity", 0.4);
+
+    svg.selectAll(".pca-legend .legend-item text")
+      .style("font-weight", "normal")
+      .style("fill", "#000");
+
+    svg.select(`.pca-legend .legend-item[data-cluster='${point.cluster}'] text`)
+      .style("font-weight", "bold")
+      .style("fill", colorMap[point.cluster]);
   }
+
+  function resetHighlight() {
+    circles.attr("opacity", 0.4);
+    centroidPaths.attr("opacity", 0.5);
+    radarSvg.selectAll(".point-radar").remove();
+    svg.selectAll(".pca-legend .legend-item text")
+      .style("font-weight", "normal")
+      .style("fill", "#000");
+  }
+
+  circles.on("mouseover", (event, d) => highlightPoint(d))
+         .on("mouseout", resetHighlight)
+         .on("click", (event, d) => highlightCluster(d.cluster));
 
   // ---------------- TOOLTIP ----------------
   const tooltip = d3.select("#tooltip");
-
-  circles.on("mouseover",(event,d)=>{
-    applyHover(d.cluster, d);
-
+  circles.on("mouseover.tooltip",(event,d)=>{
     tooltip.style("opacity",1)
-      .html(`<strong>Cluster:</strong> ${d.cluster}<br/>
-             <strong>Game:</strong> ${d.game_type}`)
+      .html(`Cluster: ${clusterNames[d.cluster]}<br/>PC1: ${d.pca_x.toFixed(2)}<br/>PC2: ${d.pca_y.toFixed(2)}`)
       .style("left",(event.pageX+10)+"px")
-      .style("top",(event.pageY-20)+"px");
-  })
-  .on("mouseout",()=>{
-    resetHighlight();
+      .style("top",(event.pageY-20)+"px");  
+  }).on("mouseout.tooltip", ()=>{
     tooltip.style("opacity",0);
-  });
-
-  // ---------------- LEGEND ----------------
-  const legend = d3.select("#legend");
-  const legendRows = {};
-
-  clusters.forEach(c=>{
-    const row = legend.append("div").style("cursor","pointer");
-    legendRows[c.id] = row;
-
-    row.append("span")
-      .style("background",colorMap[c.id])
-      .style("width","12px")
-      .style("height","12px")
-      .style("display","inline-block")
-      .style("margin-right","6px");
-
-    row.append("span")
-      .attr("class","label")
-      .text(clusterNames[c.id]);
-
-    row.on("mouseover", ()=> applyHover(c.id))
-       .on("mouseout", ()=> resetHighlight())
-       .on("click",(event)=>{
-          event.stopPropagation();
-          activeCluster = activeCluster === c.id ? null : c.id;
-          applyFilters();
-       });
-  });
-
-  function updateLegendStyles(){
-    Object.entries(legendRows).forEach(([id,row])=>{
-      row.select(".label")
-        .style("font-weight", activeCluster==id ? "bold":"normal")
-        .style("color", activeCluster==id ? colorMap[id]:"#000");
-    });
-  }
-
-  // ---------------- GAME FILTER ----------------
-  const gameFilter = d3.select("#game-filter");
-  const gameRows = {};
-  const gameTypes = [...new Set(points.map(d=>d.game_type))];
-
-  gameTypes.forEach(g=>{
-    const row = gameFilter.append("div")
-      .attr("class","game-row");
-
-    gameRows[g] = row;
-
-    row.append("span")
-      .attr("class","label")
-      .text(g);
-
-    row.on("click",(event)=>{
-      event.stopPropagation();
-      activeGame = activeGame === g ? null : g;
-      applyFilters();
-    });
-  });
-
-  function updateGameStyles(){
-    Object.entries(gameRows).forEach(([g,row])=>{
-      row.select(".label")
-        .style("font-weight", activeGame===g ? "bold":"normal");
-    });
-  }
-
-  // ---------------- RESET ----------------
-  d3.select("body").on("click", ()=>{
-    activeGame = null;
-    activeCluster = null;
-    filteredPoints = [...points];
-
-    circles.attr("display", null);
-
-    updateCentroids();
-    resetHighlight();
-    updateLegendStyles();
-    updateGameStyles();
   });
 
 });

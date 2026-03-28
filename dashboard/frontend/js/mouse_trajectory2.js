@@ -10,7 +10,7 @@ d3.json("data/sheep_herd_test_session.json").then(data => {
   const trajDiv = document.getElementById("trajectory-plot");
   const width = trajDiv.clientWidth;
   const height = trajDiv.clientHeight;
-  const margin = {top: 20, right: 30, bottom: 40, left: 30}; // extra bottom margin
+  const margin = {top: 20, right: 20, bottom: 40, left: 20}; // extra bottom margin
 
   // ---------------- SVG ----------------
   const svg = d3.select("#trajectory-plot")
@@ -47,7 +47,7 @@ const legendItems = [
 ];
 
 const spacing = 10;       // space between items
-const dotRadius = 5;
+const dotRadius = 6;
 const textOffset = 5;
 const fontSize = 12;
 
@@ -66,9 +66,10 @@ tempGroup.remove();
 const totalLegendWidth = legendWidths.reduce((a,b)=>a+b,0) + spacing*(legendItems.length-1);
 
 // Sample label width
+const sampleFontSize = 12;
 const sampleTextTemp = svg.append("text")
   .text("Sample: 0000")
-  .attr("class", "legend-text")
+  .style("font-size", `${sampleFontSize}px`)
   .attr("visibility","hidden");
 const sampleLabelWidth = sampleTextTemp.node().getBBox().width;
 sampleTextTemp.remove();
@@ -88,15 +89,15 @@ legendItems.forEach((item,i) => {
     .attr("r", dotRadius)
     .attr("fill", item.color)
     .attr("cx", cursorX + dotRadius)
-    .attr("cy", -dotRadius/4);
+    .attr("cy", 0);
 
   // Text
-  bottomGroup.append("text")
-	.text(item.label)
-	.attr("x", cursorX + dotRadius*2 + textOffset)
-	.attr("y", 0)
-	.attr("dominant-baseline", "middle")
-	.attr("class", "legend-text");
+  const textEl = bottomGroup.append("text")
+    .text(item.label)
+    .attr("x", cursorX + dotRadius*2 + textOffset)
+    .attr("y", 0)
+    .style("font-size", `${fontSize}px`)
+    .attr("dominant-baseline", "middle");
 
   cursorX += legendWidths[i] + spacing;
 });
@@ -106,8 +107,8 @@ const sampleText = bottomGroup.append("text")
   .text("Sample: 0")
   .attr("x", cursorX + 20) // gap of 20px
   .attr("y", 0)
-  .attr("dominant-baseline", "middle")
-  .attr("class", "legend-text");
+  .style("font-size", `${sampleFontSize}px`)
+  .attr("dominant-baseline", "middle");
 
   // ---------------- ANIMATION ----------------
   let i = 0;
