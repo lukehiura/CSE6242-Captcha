@@ -2,25 +2,25 @@
   {
     "id": 0,
     "name": "Fast-Balanced-Fluid",
-    "size": 7218,
+    "size": 10628,
     "color": "#f77189"
   },
   {
     "id": 1,
     "name": "Slow-Balanced-Fluid",
-    "size": 3616,
+    "size": 5471,
     "color": "#97a431"
   },
   {
     "id": 2,
-    "name": "Moderate-Circuitous-Hesitant",
-    "size": 1155,
+    "name": "Moderate-Direct-Fluid",
+    "size": 8686,
     "color": "#36ada4"
   },
   {
     "id": 3,
-    "name": "Moderate-Direct-Fluid",
-    "size": 5682,
+    "name": "Moderate-Circuitous-Hesitant",
+    "size": 1684,
     "color": "#a48cf4"
   }
 ]
