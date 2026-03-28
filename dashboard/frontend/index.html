@@ -5,155 +5,141 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PCA Scatter Dashboard</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: sans-serif;
-      background: #f9f9f9;
-      color: #111;
-    }
+	/* -------------------- GLOBAL -------------------- */
+	html, body {
+	  margin: 0;
+	  padding: 0;
+	  font-family: sans-serif;
+	  background: #f9f9f9;
+	  color: #111;
+	  height: 100%;
+	}
 
-    #dashboard {
-      width: 90vw;
-      max-width: 1600px;
-      margin: auto;
-      display: flex;
-      gap: 30px;
-      padding: 20px 0;
-    }
+	/* -------------------- DASHBOARD GRID -------------------- */
+	#dashboard {
+	  width: 90vw;
+	  max-width: 1600px;
+	  margin: auto;
+	  display: grid;
+	  grid-template-columns: repeat(16, 1fr); /* 16-column grid */
+	  grid-template-rows: repeat(9, 1fr);     /* 9-row grid */
+	  gap: 10px;
+	  min-height: 600px;
+	}
 
-    /* LEFT: Scatter */
-    #scatter-wrapper {
-      flex: 2;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
+	/* -------------------- WRAPPERS & HEADERS -------------------- */
+	#scatter-wrapper, #radar-wrapper, #clusters-wrapper {
+	  display: grid;
+	  grid-template-rows: 50px 1fr; /* fixed header height, rest fills */
+	  background: transparent;
+	  border-radius: 8px;
+	  //box-shadow: 0 0 5px rgba(0,0,0,0.1);
+	  overflow: hidden;
+	}
 
-    #scatter-wrapper h3 {
-      margin: 0;
-      padding: 10px;
-      text-align: center;
-      font-size: 1rem;
-      flex: 0 0 40px;
-    }
+	#scatter-wrapper h3,
+	#radar-wrapper h3,
+	#clusters-wrapper h3 {
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	  margin: 0;
+	  font-size: 1.2rem;
+	}
 
-    #scatter-plot {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      position: relative;
-    }
+	/* -------------------- SCATTER -------------------- */
+	#scatter-wrapper {
+	  grid-column: 1 / span 8;
+	  grid-row: 1 / span 9;
+	  padding: 10px;
+	}
 
-    #scatter-plot svg {
-      max-width: 100%;
-      max-height: 100%;
-      display: block;
-    }
+	#scatter-plot {
+	  width: 100%;
+	  aspect-ratio: 1 / 1;
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	  overflow: hidden;
+	  position: relative;
+	}
 
-    /* RIGHT: Legend + Radar */
-    #right-column {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+	#scatter-plot svg {
+	  width: 100%;
+	  height: 100%;
+	  display: block;
+	}
 
-    #clusters-wrapper {
-      flex: 0 0 150px;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      padding: 10px;
-      overflow-y: auto;
-      align-items: center;
-    }
+	/* -------------------- RADAR -------------------- */
+	#radar-wrapper {
+	  grid-column: 9 / span 5;
+	  grid-row: 1 / span 6;
+	  padding: 10px;
+	}
 
-    #clusters-wrapper h3 {
-      margin: 0 0 5px 0;
-      font-size: 0.9rem;
-      text-align: center;
-    }
+	#radar-wrapper .info {
+	  text-align: center;
+	  margin-top: 4px;
+	}
 
-    #legend {
-      flex: 1;
-      width: 100%;
-      font-size: 0.8rem;
-    }
+	#radar {
+	  width: 100%;
+	  aspect-ratio: 1 / 1;
+	  display: flex;
+	  justify-content: center;
+	  align-items: center;
+	  overflow: hidden;
+	  position: relative;
+	}
 
-    .legend-row {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      margin-bottom: 4px;
-      width: 100%;
-      justify-content: flex-start;
-    }
+	#radar svg {
+	  width: 100%;
+	  height: 100%;
+	  display: block;
+	}
 
-    .legend-row span.color-box {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin-right: 6px;
-    }
+	/* -------------------- CLUSTERS LEGEND -------------------- */
+	#clusters-wrapper {
+	  grid-column: 9 / span 5;
+	  grid-row: 7 / span 3;
+	  padding: 10px;
+	  overflow-y: auto;
+	}
 
-    .legend-row span.label {
-      flex: 1;
-    }
+	#legend {
+	  font-size: 0.8rem;
+	}
 
-    #radar-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      padding: 10px;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
+	.legend-row {
+	  display: flex;
+	  align-items: center;
+	  cursor: pointer;
+	  margin-bottom: 4px;
+	}
 
-    #radar-wrapper h3 {
-      margin: 0 0 5px 0;
-      font-size: 0.9rem;
-      text-align: center;
-    }
+	.legend-row span.color-box {
+	  display: inline-block;
+	  width: 12px;
+	  height: 12px;
+	  margin-right: 6px;
+	}
 
-    #radar-wrapper .info {
-      font-size: 0.7rem;
-      text-align: center;
-      margin-bottom: 4px;
-    }
+	.legend-row span.label {
+	  flex: 1;
+	}
 
-    #radar {
-      width: 100%;
-      max-width: 350px;
-      height: 350px;
-    }
-
-    #tooltip {
-      position: absolute;
-      padding: 6px;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      border-radius: 4px;
-      pointer-events: none;
-      opacity: 0;
-      font-size: 0.85rem;
-      z-index: 10;
-    }
-
+	/* -------------------- Tooltip -------------------- */
+	#tooltip {
+	  position: absolute;
+	  padding: 6px;
+	  background: rgba(0,0,0,0.7);
+	  color: white;
+	  border-radius: 4px;
+	  pointer-events: none;
+	  opacity: 0;
+	  font-size: 0.85rem;
+	  z-index: 10;
+	}
   </style>
 </head>
 <body>
@@ -166,25 +152,20 @@
       <div id="scatter-plot"></div>
     </div>
 
-    <!-- RIGHT: Legend + Radar -->
-    <div id="right-column">
-
-      <!-- CLUSTERS -->
-      <div id="clusters-wrapper">
-        <h3>PCA Clusters</h3>
-        <div id="legend"></div>
+    <!-- RADAR -->
+    <div id="radar-wrapper">
+      <h3>Behavior Profile Radar</h3>
+      <div id="radar"></div>
+      <div class="info">
+		<span style="color:#000;"><b>Solid outline</b></span>: cluster centroid averages <br>
+		<span style="color:#000; background-color:#ddd; padding:2px 4px; border-radius:2px;">Filled polygon</span>: selected point behavior
       </div>
+    </div>
 
-      <!-- RADAR -->
-      <div id="radar-wrapper">
-        <h3>Behavior Profile Radar</h3>
-        <div class="info">
-          <span style="color:#000;">Black outline:</span> cluster centroid averages,
-          <span style="opacity:0.4;">filled polygon:</span> selected point behavior
-        </div>
-        <div id="radar"></div>
-      </div>
-
+    <!-- CLUSTERS -->
+    <div id="clusters-wrapper">
+      <h3>Cluster Labels</h3>
+      <div id="legend"></div>
     </div>
 
   </div>
