@@ -21,8 +21,8 @@ html, body {
   max-width: 1600px;
   margin: auto;
   display: grid;
-  grid-template-columns: repeat(16, 1fr); /* 16-column grid */
-  grid-template-rows: repeat(9, 1fr); /* 9-row grid */
+  grid-template-columns: repeat(16, 1fr);
+  grid-template-rows: repeat(9, 1fr);
   gap: 10px;
   min-height: 600px;
 }
@@ -30,13 +30,11 @@ html, body {
 /* -------------------- WRAPPERS & HEADERS -------------------- */
 #scatter-wrapper, #radar-wrapper, #trajectory-wrapper, #filter-wrapper {
   display: grid;
-  grid-template-rows: 50px 1fr; /* fixed header height, rest fills */
-  background: transparent;
+  grid-template-rows: 50px 1fr;
   border-radius: 8px;
-  //box-shadow: 0 0 5px rgba(0,0,0,0.1);
   overflow: hidden;
 }
-#scatter-wrapper h3, #radar-wrapper h3,  #trajectory-wrapper h3, #filter-wrapper h3 {
+#scatter-wrapper h3, #radar-wrapper h3, #trajectory-wrapper h3, #filter-wrapper h3 {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -45,138 +43,77 @@ html, body {
 }
 
 /* -------------------- SCATTER -------------------- */
-#scatter-wrapper {
-  grid-column: 1 / span 9;
-  grid-row: 1 / span 9;
-  padding: 10px;
-}
-#scatter-plot {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  position: relative;
-}
-#scatter-plot svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+#scatter-wrapper { grid-column: 1 / span 9; grid-row: 1 / span 9; padding: 10px; }
+#scatter-plot, #radar, #trajectory-plot { width: 100%; aspect-ratio: 1 / 1; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
+#scatter-plot svg, #radar svg, #trajectory-plot svg { width: 100%; height: 100%; display: block; }
 
 /* -------------------- RADAR -------------------- */
-#radar-wrapper {
-  grid-column: 9 / span 4;
-  grid-row: 1 / span 4;
-  padding: 10px;
-}
-#radar-wrapper .info {
-  text-align: center;
-  margin-top: 4px;
-}
-#radar {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  position: relative;
-}
-#radar svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+#radar-wrapper { grid-column: 9 / span 4; grid-row: 1 / span 4; padding: 10px; }
 
 /* -------------------- TRAJECTORY -------------------- */
-#trajectory-wrapper {
-  grid-column: 9 / span 4;
-  grid-row: 5 / span 4;
-  padding: 10px;
-}
-#trajectory-plot {
-  width: 100%;
-  height: 100%; /* fill wrapper */
-  position: relative;
-}
-#trajectory-plot svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+#trajectory-wrapper { grid-column: 9 / span 4; grid-row: 5 / span 4; padding: 10px; }
 
 /* -------------------- FILTERS -------------------- */
-#filter-wrapper {
-  grid-column: 13 / span 4;
-  grid-row: 1 / span 4;
-  padding: 10px;
-}
-
-
-#filter-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;   /* vertical stacking */
-  justify-content: center;
-  align-items: center;
-  gap: 15px;                /* space between circles */
-}
-
+#filter-wrapper { grid-column: 13 / span 4; grid-row: 1 / span 3; padding: 10px; }
+#filter-container { width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
 
 /* -------------------- TOOLTIP -------------------- */
 #tooltip {
   position: absolute;
-  padding: 6px;
-  background: rgba(0,0,0,0.7);
-  color: white;
-  border-radius: 4px;
   pointer-events: none;
   opacity: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 6px;
+  border-radius: 4px;
   font-size: 0.85rem;
-  z-index: 10;
+  transition: opacity 0.15s;
+  left: 0;
+  top: 0;
+  display: block;
+  white-space: normal;
+  max-width: 250px;
 }
 
 /* -------------------- LEGEND TEXT -------------------- */
 .legend-text {
-/*  font-family: "Arial, sans-serif"; */
   font-size: 12px;
   fill: #000;                        
   font-weight: normal;
 }
-
 </style>
 </head>
 <body>
 <div id="dashboard">
-  <!-- LEFT: PCA Scatter -->
+  <!-- PCA Scatter -->
   <div id="scatter-wrapper">
     <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
     <div id="scatter-plot"></div>
   </div>
-  <!-- MOUSE TRAJECTORY CONTAINER -->
+
+  <!-- Mouse Trajectory -->
   <div id="trajectory-wrapper">
     <h3>Mouse Trajectory</h3>
     <div id="trajectory-plot"></div>
   </div>
-  <!-- RADAR -->
+
+  <!-- Radar -->
   <div id="radar-wrapper">
     <h3>Behavior Profile Radar</h3>
     <div id="radar"></div>
   </div>
-  <!-- GAME TYPE FILTERS -->
+
+  <!-- Game Type Filters -->
   <div id="filter-wrapper">
     <h3>Game Type</h3>
     <div id="filter-container"></div>
   </div>
-
-
 </div>
 
 <div id="tooltip"></div>
 
-<!-- D3 -->
+<!-- Scripts -->
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="js/svg_icons.js"></script>
 <script src="js/pca_scatter.js"></script>
