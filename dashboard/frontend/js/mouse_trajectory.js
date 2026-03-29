@@ -7,12 +7,12 @@ d3.json("data/sheep_herd_test_session.json").then(data => {
   const CURSOR_UP_COLOR = "#ddd";
   const CURSOR_DOWN_COLOR = "black";
 
+  // ---------------- SVG SETUP ----------------
   const trajDiv = document.getElementById("trajectory-plot");
   const width = trajDiv.clientWidth;
   const height = trajDiv.clientHeight;
-  const margin = {top: 20, right: 30, bottom: 40, left: 30}; // extra bottom margin
+  const margin = {top: 20, right: 30, bottom: 40, left: 30};
 
-  // ---------------- SVG ----------------
   const svg = d3.select("#trajectory-plot")
     .append("svg")
     .attr("width", "100%")
@@ -39,80 +39,85 @@ d3.json("data/sheep_herd_test_session.json").then(data => {
   const trailData = [];
   const MAX_TRAIL = 600; // adjustable tail length
 
-  // ---------------- CENTERED LEGEND + SAMPLE LABEL ----------------
-// ---------------- CENTERED LEGEND + SAMPLE LABEL ----------------
-const legendItems = [
-  { label: "Mouse Up", color: CURSOR_UP_COLOR },
-  { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
-];
+  // ---------------- LEGEND + SAMPLE LABEL ----------------
+  const legendItems = [
+    { label: "Mouse Up", color: CURSOR_UP_COLOR },
+    { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
+  ];
 
-const spacing = 10;       // space between items
-const dotRadius = 5;
-const textOffset = 5;
-const fontSize = 12;
+  const spacing = 10;
+  const dotRadius = 5;
+  const textOffset = 5;
+  const fontSize = 12;
 
-// Create a temporary group to measure text widths
-const tempGroup = svg.append("g").attr("visibility", "hidden");
-const legendWidths = legendItems.map(item => {
-  const text = tempGroup.append("text")
-    .text(item.label)
-    .style("font-size", `${fontSize}px`);
-  const width = text.node().getBBox().width;
-  text.remove();
-  return dotRadius*2 + textOffset + width;
-});
-tempGroup.remove();
+  // Measure legend text widths
+  const tempGroup = svg.append("g").attr("visibility", "hidden");
+  const legendWidths = legendItems.map(item => {
+    const text = tempGroup.append("text")
+      .text(item.label)
+      .style("font-size", `${fontSize}px`);
+    const width = text.node().getBBox().width;
+    text.remove();
+    return dotRadius*2 + textOffset + width;
+  });
+  tempGroup.remove();
 
-const totalLegendWidth = legendWidths.reduce((a,b)=>a+b,0) + spacing*(legendItems.length-1);
+  const totalLegendWidth = legendWidths.reduce((a,b)=>a+b,0) + spacing*(legendItems.length-1);
 
-// Sample label width
-const sampleTextTemp = svg.append("text")
-  .text("Sample: 0000")
-  .attr("class", "legend-text")
-  .attr("visibility","hidden");
-const sampleLabelWidth = sampleTextTemp.node().getBBox().width;
-sampleTextTemp.remove();
+  // Sample label width
+  const sampleTextTemp = svg.append("text")
+    .text("Sample: 0000")
+    .attr("class", "legend-text")
+    .attr("visibility","hidden");
+  const sampleLabelWidth = sampleTextTemp.node().getBBox().width;
+  sampleTextTemp.remove();
 
-const totalWidth = totalLegendWidth + 20 + sampleLabelWidth; // 20px gap between legend and sample label
+  const totalWidth = totalLegendWidth + 20 + sampleLabelWidth; // 20px gap
 
-// Bottom group
-const bottomGroup = svg.append("g")
-  .attr("transform", `translate(${width/2 - totalWidth/2}, ${height - 20})`); // 20px from bottom
+  // Bottom group
+  const bottomGroup = svg.append("g")
+    .attr("transform", `translate(${width/2 - totalWidth/2}, ${height - 20})`); // 20px from bottom
 
-let cursorX = 0;
+  let cursorX = 0;
 
-// Add legend items
-legendItems.forEach((item,i) => {
-  // Dot
-  bottomGroup.append("circle")
-    .attr("r", dotRadius)
-    .attr("fill", item.color)
-    .attr("cx", cursorX + dotRadius)
-    .attr("cy", -dotRadius/4);
+  // Add legend items
+  legendItems.forEach((item,i) => {
+    bottomGroup.append("circle")
+      .attr("r", dotRadius)
+      .attr("fill", item.color)
+      .attr("cx", cursorX + dotRadius)
+      .attr("cy", -dotRadius/4);
 
-  // Text
-  bottomGroup.append("text")
-	.text(item.label)
-	.attr("x", cursorX + dotRadius*2 + textOffset)
-	.attr("y", 0)
-	.attr("dominant-baseline", "middle")
-	.attr("class", "legend-text");
+    bottomGroup.append("text")
+      .text(item.label)
+      .attr("x", cursorX + dotRadius*2 + textOffset)
+      .attr("y", 0)
+      .attr("dominant-baseline", "middle")
+      .attr("class", "legend-text");
 
-  cursorX += legendWidths[i] + spacing;
-});
+    cursorX += legendWidths[i] + spacing;
+  });
 
-// Add sample label to the right of legend
-const sampleText = bottomGroup.append("text")
-  .text("Sample: 0")
-  .attr("x", cursorX + 20) // gap of 20px
-  .attr("y", 0)
-  .attr("dominant-baseline", "middle")
-  .attr("class", "legend-text");
+  // Sample label
+  const sampleText = bottomGroup.append("text")
+    .text("Sample: 0")
+    .attr("x", cursorX + 20)
+    .attr("y", 0)
+    .attr("dominant-baseline", "middle")
+    .attr("class", "legend-text");
 
   // ---------------- ANIMATION ----------------
   let i = 0;
   function animateMouse() {
-    if (i >= tickInputs.length) return;
+  if (i >= tickInputs.length) {
+    // Pause 1s, then fade out
+    setTimeout(() => {
+      cursor.transition().duration(1500).attr("opacity", 0);
+      sampleText.transition().duration(1500).attr("opacity", 0);
+      svg.selectAll(".trail-segment").transition().duration(1500).attr("opacity", 0).remove();
+    }, 5000); // 5000ms delay
+    return;
+  }
 
     const point = tickInputs[i];
     const px = xScale(point.x);
@@ -122,13 +127,13 @@ const sampleText = bottomGroup.append("text")
     cursor
       .attr("cx", px)
       .attr("cy", py)
-      .attr("fill", point.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR);
+      .attr("fill", point.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
+      .attr("opacity", 0.8);
 
     // Update trail
-    trailData.push({x:px, y:py, isDown:point.isDown});
+    trailData.push({x: px, y: py, isDown: point.isDown});
     if (trailData.length > MAX_TRAIL) trailData.shift();
 
-    // Draw segments with fading opacity
     const segments = [];
     for (let j = 1; j < trailData.length; j++) {
       segments.push({
@@ -136,7 +141,7 @@ const sampleText = bottomGroup.append("text")
         y1: trailData[j-1].y,
         x2: trailData[j].x,
         y2: trailData[j].y,
-        opacity: j / trailData.length, // older points fade out
+        opacity: j / trailData.length,
         isDown: trailData[j].isDown
       });
     }
@@ -158,7 +163,7 @@ const sampleText = bottomGroup.append("text")
     lines.exit().remove();
 
     // Update sample label
-    sampleText.text(`Sample: ${point.sampleIndex}`);
+    sampleText.text(`Sample: ${point.sampleIndex}`).attr("opacity", 1);
 
     i++;
     requestAnimationFrame(animateMouse);

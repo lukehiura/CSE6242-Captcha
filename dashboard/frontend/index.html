@@ -28,7 +28,7 @@ html, body {
 }
 
 /* -------------------- WRAPPERS & HEADERS -------------------- */
-#scatter-wrapper, #radar-wrapper, #trajectory-wrapper  {
+#scatter-wrapper, #radar-wrapper, #trajectory-wrapper, #filter-wrapper {
   display: grid;
   grid-template-rows: 50px 1fr; /* fixed header height, rest fills */
   background: transparent;
@@ -36,7 +36,7 @@ html, body {
   //box-shadow: 0 0 5px rgba(0,0,0,0.1);
   overflow: hidden;
 }
-#scatter-wrapper h3, #radar-wrapper h3,  #trajectory-wrapper h3 {
+#scatter-wrapper h3, #radar-wrapper h3,  #trajectory-wrapper h3, #filter-wrapper h3 {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -67,7 +67,7 @@ html, body {
 
 /* -------------------- RADAR -------------------- */
 #radar-wrapper {
-  grid-column: 10 / span 4;
+  grid-column: 9 / span 4;
   grid-row: 1 / span 4;
   padding: 10px;
 }
@@ -92,7 +92,7 @@ html, body {
 
 /* -------------------- TRAJECTORY -------------------- */
 #trajectory-wrapper {
-  grid-column: 10 / span 4;
+  grid-column: 9 / span 4;
   grid-row: 5 / span 4;
   padding: 10px;
 }
@@ -106,6 +106,24 @@ html, body {
   height: 100%;
   display: block;
 }
+
+/* -------------------- FILTERS -------------------- */
+#filter-wrapper {
+  grid-column: 13 / span 4;
+  grid-row: 1 / span 4;
+  padding: 10px;
+}
+
+
+#filter-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;   /* vertical stacking */
+  justify-content: center;
+  align-items: center;
+  gap: 15px;                /* space between circles */
+}
+
 
 /* -------------------- TOOLTIP -------------------- */
 #tooltip {
@@ -146,10 +164,11 @@ html, body {
   <div id="radar-wrapper">
     <h3>Behavior Profile Radar</h3>
     <div id="radar"></div>
-<!--     <div class="info">
-      <span style="color:#000;"><b>Solid outline</b></span>: cluster centroid averages <br>
-      <span style="color:#000; background-color:#ddd; padding:2px 4px; border-radius:2px;">Filled polygon</span>: selected point behavior
-    </div> -->
+  </div>
+  <!-- GAME TYPE FILTERS -->
+  <div id="filter-wrapper">
+    <h3>Game Type</h3>
+    <div id="filter-container"></div>
   </div>
 
 
@@ -159,6 +178,7 @@ html, body {
 
 <!-- D3 -->
 <script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="js/svg_icons.js"></script>
 <script src="js/pca_scatter.js"></script>
 <script src="js/mouse_trajectory.js"></script>
 </body>

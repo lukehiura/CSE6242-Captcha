@@ -306,13 +306,118 @@ Promise.all([
 
   // ---------------- TOOLTIP ----------------
   const tooltip = d3.select("#tooltip");
-  circles.on("mouseover.tooltip",(event,d)=>{
-    tooltip.style("opacity",1)
-      .html(`Cluster: ${clusterNames[d.cluster]}<br/>PC1: ${d.pca_x.toFixed(2)}<br/>PC2: ${d.pca_y.toFixed(2)}`)
-      .style("left",(event.pageX+10)+"px")
-      .style("top",(event.pageY-20)+"px");  
-  }).on("mouseout.tooltip", ()=>{
-    tooltip.style("opacity",0);
+  circles.on("mouseover.tooltip", (event, d) => {
+    tooltip.style("opacity", 1)
+      .html(`
+        <b>${d.cluster_name} (${d.cluster})</b><br/>
+        <b>Game type:</b> ${d.game_type}<br/>
+        <b>Speed mean:</b> ${d.speed_mean.toFixed(2)}<br/>
+        <b>Path efficiency:</b> ${d.path_efficiency.toFixed(2)}<br/>
+        <b>Pause rate:</b> ${d.pause_rate.toFixed(2)}<br/>
+        <b>Duration:</b> ${d.duration.toFixed(2)}<br/>
+        <b>Anomaly score:</b> ${d.anomaly_score.toFixed(2)}
+      `)
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 20) + "px");
+  })
+  .on("mouseout.tooltip", () => {
+    tooltip.style("opacity", 0);
   });
+// ---------------- GAME TYPE FILTERS ----------------
+const filterContainer = d3.select("#filter-container");
+
+const filterSize = 70;       // slightly bigger
+const filterSpacing = 25;
+
+// Use your external SVG icons
+const gameFilters = [
+  { id: "sheep", label: "Sheep", svgPath: svgIcons.sheep },
+  { id: "thread", label: "Thread", svgPath: svgIcons.thread },
+  { id: "polygon", label: "Polygon", svgPath: svgIcons.polygon }
+];
+
+// Create SVG
+const filterGroup = filterContainer.append("svg")
+  .attr("width", filterSize * 2)
+  .attr("height", (filterSize + filterSpacing) * gameFilters.length);
+
+// Track selected filter
+let selectedFilter = null;
+
+// ---------------- GAME TYPE FILTERS ----------------
+// Configurable margins for filter group
+const filterMarginTop = 5;       // top padding
+const filterMarginLeft = 0;      // left padding
+const filterVerticalSpacing = 20; // space between circles
+
+const filterItems = filterGroup.selectAll(".filter-item")
+  .data(gameFilters)
+  .enter()
+  .append("g")
+  .attr("class", "filter-item")
+  .attr("transform", (d, i) => {
+    const xPos = filterMarginLeft + filterSize; // left margin + radius offset
+    const yPos = filterMarginTop + i * (filterSize + filterVerticalSpacing) + filterSize / 2;
+    return `translate(${xPos}, ${yPos})`;
+  })
+  .style("cursor", "pointer")
+  .on("click", function(event, d) {
+    selectedFilter = selectedFilter === d.id ? null : d.id;
+    updateFilterSelection();
+    applyFilter(selectedFilter);
+  });
+
+// ---------------- OUTER CIRCLE ----------------
+filterItems.append("circle")
+  .attr("r", filterSize / 2)
+  .attr("fill", "#f0f0f0")
+  .attr("stroke", "#999")
+  .attr("stroke-width", 2);
+
+// ---------------- ICONS (SVG SUPPORT) ----------------
+filterItems.append("g")
+  .attr("class", "icon-wrapper")
+  .each(function(d) {
+    const g = d3.select(this);
+    g.html(svgIcons[d.id]);
+    const bbox = g.node().getBBox();
+    const scale = (filterSize * 0.5) / Math.max(bbox.width, bbox.height);
+    g.attr("transform", `
+      translate(${-bbox.x * scale - bbox.width * scale / 2},
+                ${-bbox.y * scale - bbox.height * scale / 2})
+      scale(${scale})
+    `);
+  });
+
+// ---------------- HIGHLIGHT SELECTION ----------------
+function updateFilterSelection() {
+  filterItems.select("circle")
+    .attr("stroke", d => d.id === selectedFilter ? "#000000" : "#999")
+    .attr("stroke-width", d => d.id === selectedFilter ? 4 : 2);
+
+  // Optional: bold text if you add text labels next to circles
+  filterItems.select("text")
+    .style("font-weight", d => d.id === selectedFilter ? "bold" : "normal");
+}
+
+// ---------------- APPLY FILTER ----------------
+function applyFilter(filterId) {
+  console.log("Filter selected:", filterId);
+  d3.selectAll("#scatter-plot circle")
+    .attr("opacity", d => {
+      if (!filterId) return 0.4;
+      return d.game_type === filterId ? 1 : 0.1;
+    });
+}
+
+// ---------------- ADD TEXT LABELS ----------------
+filterItems.append("text")
+  .attr("x", filterSize + 8) // offset right of circle
+  .attr("y", 0)
+  .attr("dominant-baseline", "middle")
+  .style("font-size", "14px")
+  .text(d => d.name); // assuming gameFilters has a "name" field
+
+
 
 });
