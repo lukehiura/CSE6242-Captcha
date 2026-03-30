@@ -15,7 +15,7 @@ CORS(app)
 
 @app.route('/')
 def index():
-    return app.send_static_file('index.html')
+    return app.send_static_file('index - pz.html')
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 
