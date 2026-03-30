@@ -1,0 +1,13 @@
+{
+  "model": "Logistic Regression",
+  "cv_accuracy_mean": 0.9915818318908045,
+  "cv_accuracy_std": 0.000720773542997237,
+  "cv_f1_mean": 0.991573978105331,
+  "cv_f1_std": 0.0007170839098845689,
+  "test_accuracy": 0.9934936350777935,
+  "test_f1_weighted": 0.9934899869176587,
+  "n_train": 14136,
+  "n_test": 3535,
+  "n_total": 17671,
+  "overfit_gap": 0.000618938674775249
+}
