@@ -1,4 +1,4 @@
-// ---------------- REUSABLE MOUSE TRAJECTORY FUNCTION ----------------
+// ---------------- MOUSE TRAJECTORY FUNCTION ----------------
 function renderMouseTrajectory(hfIndex, targetDivId, captionSelector) {
   // Fetch session from Flask backend
   d3.json(`http://127.0.0.1:5001/session/${hfIndex}`).then(session => {

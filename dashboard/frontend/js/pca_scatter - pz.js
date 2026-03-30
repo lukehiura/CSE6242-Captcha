@@ -13,12 +13,15 @@ Promise.all([
 
   // ---------------- STATE ----------------
   
+
+
 state = {
   selectedClusters: new Set(), // can hold multiple clusters
   selectedGames: new Set(),    // can hold multiple games
   hoveredCluster: null,        // still only one hovered at a time
   hoveredGame: null,           // still only one hovered at a time
-  hoveredPoint: null
+  hoveredPoint: null,           // still only one hovered at a time
+  selectedPoint: null
 };
 
 
@@ -28,10 +31,21 @@ function resetAll() {
   state.hoveredCluster = null;
   state.hoveredGame = null;
   state.hoveredPoint = null;
+  state.selectedPoint = null;
+
+  // Clear info panel AND hide it
+  d3.select("#selected-point-info")
+    .html("")             // remove content
+    .style("display", "none") // hide so background disappears
+    .classed("tooltip-style", false); // remove background class
+
+  // Clear trajectory
+  d3.select("#trajectory-plot").html("");
+  d3.select("#trajectory-caption").html("");
 
   applyFilter();
-  updateLegendAppearance();   // <-- resets cluster labels
-  updateFilterAppearance();   // <-- resets game labels
+  updateLegendAppearance();
+  updateFilterAppearance();
   updateVisuals();
 }
 
@@ -120,6 +134,19 @@ svg.on("click", function(event) {
     .style("max-width","250px");
 
 
+function buildTooltipHTML(d) {
+  return `
+    <b>Index:</b> ${d.hf_index}<br/>
+    <b>${clusterNames[d.cluster]} (${d.cluster})</b><br/>
+    <b>Game type:</b> ${d.game_type}<br/>
+    <b>Speed mean:</b> ${d.speed_mean.toFixed(2)}<br/>
+    <b>Path efficiency:</b> ${d.path_efficiency.toFixed(2)}<br/>
+    <b>Pause rate:</b> ${d.pause_rate.toFixed(2)}<br/>
+    <b>Duration:</b> ${d.duration.toFixed(2)}<br/>
+    <b>Anomaly score:</b> ${d.anomaly_score.toFixed(2)}
+  `;
+}
+
 
   // ---------------- AXES ----------------
   svg.append("g")
@@ -160,6 +187,49 @@ svg.on("click", function(event) {
     .style("cursor","pointer");
 
   attachCircleHover(circles);
+
+
+
+
+  // ---------------- SELECTED POINT INFO ----------------
+  // Select the info container
+
+
+function renderTrajectoryCaption(id) {
+
+  d3.select("#trajectory-plot").selectAll("text.trajectory-caption").remove();
+
+  d3.select("#trajectory-plot")
+    .append("text")
+    .attr("class", "trajectory-caption")
+    .text(`Trajectory for point ${id}`)
+    .attr("x", width / 2)               // center horizontally
+    .attr("y", 25)                      // slightly below top
+    .attr("text-anchor", "middle")      // center alignment
+    .attr("dominant-baseline", "middle")
+    .style("font-size", "16px")         // adjust as needed
+    .style("fill", "#000")              // black text
+    .style("font-weight", "bold");
+}
+
+  // Example function to display a point's info
+  function showPointInfo(point) {
+    // Clear previous info
+    infoDiv.html("");
+
+    // Add fields
+    Object.entries(point).forEach(([key, value]) => {
+      infoDiv.append("div")
+        .attr("class", "tooltip-style")
+        .text(`${key}: ${value}`);
+    });
+  }
+
+  d3.selectAll(".data-point")
+    .on("click", function(event, d) {
+      showPointInfo(d);
+    });
+
 
   // ---------------- RADAR ----------------
   const radarContainer = d3.select("#radar");
@@ -257,8 +327,7 @@ svg.on("click", function(event) {
       .attr("y", Math.sin(angle)*(radarRadius+12))
       .attr("text-anchor","middle")
       .attr("alignment-baseline","middle")
-      .text(f)
-	  .attr("class", "legend-text");
+      .text(f);
   });
 
   function radarLine(values){
@@ -302,47 +371,6 @@ const hoveredRadarPath = radarSvg.append("path")
   .attr("pointer-events", "none")
   .style("opacity", 0); // start hidden
 
-let selectedHfIndex = null;
-const isSel = (d) => selectedHfIndex != null && d.hf_index === selectedHfIndex;
-
-// ------------------ HF SELECTION FUNCTION ------------------
-function selectHfIndex(hfIndex) { // <-- HF selection integration
-  const point = points.find(d => d.hf_index === hfIndex);
-  if (!point) {
-    console.warn("HF index not found:", hfIndex);
-    return;
-  }
-  selectedHfIndex = hfIndex;
-  highlightPoint(point);
-  setSelectionBanner(point);
-
-  trajectoryCaption.html(
-    `<strong>Game:</strong> ${formatGameType(point.game_type)} — loading session <strong>${hfIndex}</strong>…`
-  );
-  d3.select("#trajectory").selectAll("*").remove();
-
-  fetch(`${API_BASE}/session/${hfIndex}`)
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    })
-    .then(session => {
-      renderTrajectory(session.ticks, session.hf_index, session.game_type);
-    })
-    .catch(err => {
-      console.log("fetch broke", err);
-      trajectoryCaption.html(
-        `<strong>Game:</strong> ${formatGameType(point.game_type)} — could not load session`
-      );
-      d3.select("#trajectory").append("p")
-        .style("font-size", "0.75rem")
-        .style("padding", "8px")
-        .text(String(err.message || err));
-    });
-}
-// ---------------- END HF SELECTION FUNCTION ------------------
-
-
 //////////////////////////
 // ATTACH HOVER TO CIRCLES
 //////////////////////////
@@ -357,16 +385,7 @@ function attachCircleHover(circles) {
       state.hoveredPoint = d;
 
       // ---------------- TOOLTIP ----------------
-      tooltip.html(`
-	    <b>Index:</b> ${d.hf_index}<br/>
-        <b>${clusterNames[d.cluster]} (${d.cluster})</b><br/>
-        <b>Game type:</b> ${d.game_type}<br/>
-        <b>Speed mean:</b> ${d.speed_mean.toFixed(2)}<br/>
-        <b>Path efficiency:</b> ${d.path_efficiency.toFixed(2)}<br/>
-        <b>Pause rate:</b> ${d.pause_rate.toFixed(2)}<br/>
-        <b>Duration:</b> ${d.duration.toFixed(2)}<br/>
-        <b>Anomaly score:</b> ${d.anomaly_score.toFixed(2)}
-      `);
+	  tooltip.html(buildTooltipHTML(d));
       tooltip.style("opacity", 1);
 
       // ---------------- RADAR POLYGON TRANSITION ----------------
@@ -393,10 +412,38 @@ function attachCircleHover(circles) {
           .style("opacity", 0); // fade out smoothly
       }, 50);
   })
-  .on("click", function(event, d) {
-      if (d.hf_index != null) { selectHfIndex(d.hf_index); }
-  });  
-  ;
+.on("click", function(event, d) {
+    event.stopPropagation();
+
+    const id = d.hf_index;
+
+    if (state.selectedPoint === id) {
+        state.selectedPoint = null;
+
+
+
+        // Clear info panel
+        d3.select("#selected-point-info").html("")
+		.style("display", "none"); 
+
+        // OPTIONAL: clear trajectory
+        d3.select("#trajectory-plot").html("");
+        d3.select("#trajectory-caption").html("");
+
+    } else {
+        state.selectedPoint = id;
+
+        // Update info panel
+        d3.select("#selected-point-info")
+		  .html(buildTooltipHTML(d))
+		  .classed("tooltip-style", true);
+
+        // Render trajectory
+        renderMouseTrajectory(id, "trajectory-plot", "#trajectory-caption");
+    }
+
+    updateVisuals();
+});
 }
 
 // ---------------- LEGEND ----------------
@@ -705,60 +752,47 @@ updateVisuals();
 
 function updateVisuals() {
 
-  // ---------------- SCATTER POINTS ----------------
-  circles.transition().duration(TRANSITION_DURATION)
-    .attr("opacity", d => {
-
-      // ---------------- BUILD ACTIVE SETS ----------------
-      const activeClusters = new Set([...state.selectedClusters]);
-      if (state.hoveredCluster !== null) {
-        if (activeClusters.has(state.hoveredCluster)) {
-          activeClusters.delete(state.hoveredCluster);
-        } else {
-          activeClusters.add(state.hoveredCluster);
-        }
+// ---------------- SCATTER POINTS ----------------
+circles.transition().duration(TRANSITION_DURATION)
+  .attr("opacity", d => {
+    // your existing opacity logic stays as-is
+    const activeClusters = new Set([...state.selectedClusters]);
+    if (state.hoveredCluster !== null) {
+      if (activeClusters.has(state.hoveredCluster)) {
+        activeClusters.delete(state.hoveredCluster);
+      } else {
+        activeClusters.add(state.hoveredCluster);
       }
+    }
 
-      const activeGames = new Set([...state.selectedGames]);
-      if (state.hoveredGame !== null) {
-        if (activeGames.has(state.hoveredGame)) {
-          activeGames.delete(state.hoveredGame);
-        } else {
-          activeGames.add(state.hoveredGame);
-        }
+    const activeGames = new Set([...state.selectedGames]);
+    if (state.hoveredGame !== null) {
+      if (activeGames.has(state.hoveredGame)) {
+        activeGames.delete(state.hoveredGame);
+      } else {
+        activeGames.add(state.hoveredGame);
       }
+    }
 
-      // ---------------- MATCH LOGIC ----------------
-      const clusterMatch = activeClusters.size === 0 || activeClusters.has(d.cluster);
-      const gameMatch = activeGames.size === 0 || activeGames.has(gameTypeToId[d.game_type]);
+    const clusterMatch = activeClusters.size === 0 || activeClusters.has(d.cluster);
+    const gameMatch = activeGames.size === 0 || activeGames.has(gameTypeToId[d.game_type]);
+    const passes = clusterMatch && gameMatch;
 
-      const passes = clusterMatch && gameMatch;
+    const baseClusterMatch = state.selectedClusters.size === 0 || state.selectedClusters.has(d.cluster);
+    const baseGameMatch = state.selectedGames.size === 0 || state.selectedGames.has(gameTypeToId[d.game_type]);
+    const basePasses = baseClusterMatch && baseGameMatch;
 
-      // ---------------- BASE (NO HOVER) ----------------
-      const baseClusterMatch = state.selectedClusters.size === 0 || state.selectedClusters.has(d.cluster);
-      const baseGameMatch = state.selectedGames.size === 0 || state.selectedGames.has(gameTypeToId[d.game_type]);
+    const isPreview = passes !== basePasses;
+    const noBaseSelection = state.selectedClusters.size === 0 && state.selectedGames.size === 0;
 
-      const basePasses = baseClusterMatch && baseGameMatch;
-
-      // ---------------- PREVIEW DETECTION ----------------
-const isPreview = passes !== basePasses;
-
-// Detect "no base selection"
-const noBaseSelection =
-  state.selectedClusters.size === 0 &&
-  state.selectedGames.size === 0;
-
-// ---------------- FINAL OPACITY ----------------
-if (passes) {
-  // If nothing selected yet → treat preview as SELECTED
-  if (noBaseSelection) return SCATTER_SELECTED_OPACITY;
-
-  return isPreview ? SCATTER_PREVIEW_OPACITY : SCATTER_SELECTED_OPACITY;
-}
-
-return SCATTER_UNSELECTED_OPACITY;
-
-    });
+    if (passes) {
+      if (noBaseSelection) return SCATTER_SELECTED_OPACITY;
+      return isPreview ? SCATTER_PREVIEW_OPACITY : SCATTER_SELECTED_OPACITY;
+    }
+    return SCATTER_UNSELECTED_OPACITY;
+  })
+  .attr("stroke", d => d.hf_index === state.selectedPoint ? "#000" : "none")
+  .attr("stroke-width", d => d.hf_index === state.selectedPoint ? 2 : 0);
 
   // ---------------- RADAR CENTROIDS ----------------
   centroidPaths.transition().duration(TRANSITION_DURATION)
@@ -843,11 +877,171 @@ radarSvg.selectAll(".preview-radar")
       .remove()
   );
 
-
-
-
+circles.each(function(d) {
+    if (d.hf_index === state.selectedPoint) {
+        this.parentNode.appendChild(this); // bring to front
+    }
+});
 
 }
+
+
+// ---------------- MOUSE TRAJECTORY FUNCTION ----------------
+function renderMouseTrajectory(hfIndex, targetDivId, captionSelector) {
+  // Fetch session from Flask backend
+  d3.json(`http://127.0.0.1:5001/session/${hfIndex}`).then(session => {
+    const tickInputs = session.ticks || [];
+    const gameType = session.game_type;
+
+    // Target container and caption
+    const trajDiv = document.getElementById(targetDivId);
+    if (!trajDiv) return console.warn(`Div ${targetDivId} not found`);
+    trajDiv.innerHTML = ""; // clear previous SVG
+    const trajectoryCaption = d3.select(captionSelector);
+
+    if (tickInputs.length === 0) {
+      trajDiv.innerHTML = "<p>No tick data.</p>";
+      trajectoryCaption.html(`<strong>Game:</strong> ${gameType} &nbsp;|&nbsp; <strong>Session:</strong> ${hfIndex} — no ticks`);
+      return;
+    }
+
+    // ---------------- CONFIG ----------------
+    const CURSOR_UP_COLOR = "#ddd";
+    const CURSOR_DOWN_COLOR = "black";
+    const width = trajDiv.clientWidth;
+    const height = trajDiv.clientHeight;
+    const margin = {top: 20, right: 30, bottom: 40, left: 30};
+    const MAX_TRAIL = 600;
+
+    // ---------------- SVG ----------------
+    const svg = d3.select(`#${targetDivId}`)
+      .append("svg")
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("preserveAspectRatio", "xMidYMid meet");
+
+    // ---------------- SCALES ----------------
+    const xScale = d3.scaleLinear()
+      .domain(d3.extent(tickInputs, d => d.x))
+      .range([margin.left, width - margin.right]);
+
+    const yScale = d3.scaleLinear()
+      .domain(d3.extent(tickInputs, d => d.y))
+      .range([height - margin.bottom, margin.top]);
+
+    // ---------------- CURSOR ----------------
+    const cursor = svg.append("circle")
+      .attr("r", 5)
+      .attr("fill", CURSOR_UP_COLOR)
+      .attr("opacity", 0.8);
+
+    const trailData = [];
+
+    // ---------------- LEGEND + SAMPLE LABEL ----------------
+    const legendItems = [
+      { label: "Mouse Up", color: CURSOR_UP_COLOR },
+      { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
+    ];
+
+    const spacing = 4, dotRadius = 5, textOffset = 4;
+
+    const tempGroup = svg.append("g").attr("visibility", "hidden");
+    const legendWidths = legendItems.map(item => {
+      const text = tempGroup.append("text").text(item.label);
+      const w = text.node().getBBox().width;
+      text.remove();
+      return dotRadius*2 + textOffset + w;
+    });
+    tempGroup.remove();
+    const totalLegendWidth = legendWidths.reduce((a,b)=>a+b,0) + spacing*(legendItems.length-1);
+
+    const sampleTextTemp = svg.append("text").text("Sample: 0000").attr("visibility","hidden");
+    const sampleLabelWidth = sampleTextTemp.node().getBBox().width;
+    sampleTextTemp.remove();
+    const totalWidth = totalLegendWidth + 20 + sampleLabelWidth;
+
+    const bottomGroup = svg.append("g")
+      .attr("transform", `translate(${width/2 - totalWidth/2}, ${height - 20})`);
+    let cursorX = 0;
+
+    legendItems.forEach((item,i) => {
+      bottomGroup.append("circle").attr("r", dotRadius).attr("fill", item.color)
+        .attr("cx", cursorX + dotRadius).attr("cy", -dotRadius/4);
+      bottomGroup.append("text").text(item.label)
+        .attr("x", cursorX + dotRadius*2 + textOffset)
+        .attr("y", 0)
+        .attr("dominant-baseline", "middle")
+        .attr("class", "legend-text");
+      cursorX += legendWidths[i] + spacing;
+    });
+
+    const sampleText = bottomGroup.append("text")
+      .text(`Sample: 0`)
+      .attr("x", cursorX + 20)
+      .attr("y", 0)
+      .attr("dominant-baseline", "middle")
+      .attr("class", "legend-text");
+
+    // ---------------- ANIMATION ----------------
+    let i = 0;
+    function animateMouse() {
+      if (i >= tickInputs.length) {
+        setTimeout(() => {
+          cursor.transition().duration(1500).attr("opacity", 0);
+          sampleText.transition().duration(1500).attr("opacity", 0);
+          svg.selectAll(".trail-segment").transition().duration(1500).attr("opacity", 0).remove();
+        }, 5000);
+        return;
+      }
+
+      const point = tickInputs[i];
+      const px = xScale(point.x);
+      const py = yScale(point.y);
+
+      cursor.attr("cx", px).attr("cy", py)
+        .attr("fill", point.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
+        .attr("opacity", 0.8);
+
+      trailData.push({x: px, y: py, isDown: point.isDown});
+      if (trailData.length > MAX_TRAIL) trailData.shift();
+
+      const segments = [];
+      for (let j = 1; j < trailData.length; j++) {
+        segments.push({
+          x1: trailData[j-1].x,
+          y1: trailData[j-1].y,
+          x2: trailData[j].x,
+          y2: trailData[j].y,
+          opacity: j / trailData.length,
+          isDown: trailData[j].isDown
+        });
+      }
+
+      const lines = svg.selectAll(".trail-segment").data(segments);
+      lines.enter().append("line").attr("class","trail-segment")
+        .merge(lines)
+        .attr("x1", d=>d.x1)
+        .attr("y1", d=>d.y1)
+        .attr("x2", d=>d.x2)
+        .attr("y2", d=>d.y2)
+        .attr("stroke", d=>d.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", d=>d.isDown ? "0" : "4,2")
+        .attr("opacity", d=>d.opacity);
+      lines.exit().remove();
+
+      sampleText.text(`Sample: ${point.sampleIndex}`).attr("opacity", 1);
+
+      i++;
+      requestAnimationFrame(animateMouse);
+    }
+
+    animateMouse();
+  });
+}
+
+
 
 // ---------------- GLOBAL CLICK RESET ----------------
 document.addEventListener("click", function(event) {
