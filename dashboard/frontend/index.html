@@ -76,12 +76,30 @@ html, body {
   max-width: 250px;
 }
 
-/* -------------------- LEGEND TEXT -------------------- */
+/* -------------------- LEGEND & FILTER TEXT -------------------- */
 .legend-text {
   font-size: 12px;
   fill: #000;                        
   font-weight: normal;
 }
+
+.filters-text {
+  font-size: 14px;
+  fill: #111;
+  font-weight: normal;
+}
+
+.filters-text.hovered {
+  fill: #555;
+  font-weight: bold;
+}
+
+.filters-text.selected {
+  fill: #000;
+  font-weight: bold;
+}
+
+
 </style>
 </head>
 <body>
@@ -117,6 +135,9 @@ html, body {
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="js/svg_icons.js"></script>
 <script src="js/pca_scatter.js"></script>
+
+
 <script src="js/mouse_trajectory.js"></script>
+
 </body>
 </html>
