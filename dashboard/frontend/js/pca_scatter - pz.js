@@ -951,155 +951,155 @@ Promise.all([
 
 
   // ---------------- MOUSE TRAJECTORY FUNCTION ----------------
-function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoints) {
-  d3.json(`${API_BASE}/session/${hfIndex}`).then(session => {
-    const tickInputs = session.ticks || [];
-    const gameType = session.game_type;
+  function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoints) {
+    d3.json(`${API_BASE}/session/${hfIndex}`).then(session => {
+      const tickInputs = session.ticks || [];
+      const gameType = session.game_type;
 
-    const trajDiv = document.getElementById(targetDivId);
-    if (!trajDiv) return console.warn(`Div ${targetDivId} not found`);
-    trajDiv.innerHTML = "";
+      const trajDiv = document.getElementById(targetDivId);
+      if (!trajDiv) return console.warn(`Div ${targetDivId} not found`);
+      trajDiv.innerHTML = "";
 
-    const trajectoryCaption = d3.select(captionSelector);
+      const trajectoryCaption = d3.select(captionSelector);
 
-    if (tickInputs.length === 0) {
-      trajDiv.innerHTML = "<p>No tick data.</p>";
-      trajectoryCaption.html(`<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`);
-      return;
-    }
-
-    // ---------------- CONFIG ----------------
-    const CURSOR_UP_COLOR = "#ddd";
-    const CURSOR_DOWN_COLOR = "black";
-    const width = trajDiv.clientWidth;
-    const height = trajDiv.clientHeight;
-    const margin = { top: 10, right: 10, bottom: 10, left: 10 };
-    const MAX_TRAIL = 600;
-    const FADE_DURATION = 600;
-    const FADE_DELAY = 2000;
-    const EASING = d3.easeCubic;
-
-    // ---------------- SVG ----------------
-    const svg = d3.select(`#${targetDivId}`)
-      .append("svg")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("viewBox", `0 0 ${width} ${height}`)
-      .attr("preserveAspectRatio", "xMinYMin meet");
-
-    // ---------------- LAYOUT SPLIT ----------------
-    const leftHalf = width / 2;
-
-    // ---------------- LEFT BACKGROUND ----------------
-    svg.append("rect")
-      .attr("x", margin.left)
-      .attr("y", margin.top)
-      .attr("width", leftHalf - margin.left - margin.right)
-      .attr("height", height - margin.top - margin.bottom)
-      .attr("fill", "#f9f9f9")
-      .attr("stroke", "#ccc")
-      .attr("stroke-width", 1);
-
-    // ---------------- SCALES ----------------
-    const xScale = d3.scaleLinear()
-      .domain(d3.extent(tickInputs, d => d.x))
-      .range([margin.left, leftHalf - margin.right]);
-
-    const yScale = d3.scaleLinear()
-      .domain(d3.extent(tickInputs, d => d.y))
-      .range([height - margin.bottom, margin.top]);
-
-    // ---------------- ICON + CLUSTER GROUP ----------------
-    const selectedIconGroup = svg.append("g")
-      .attr("class", "selected-game-icon")
-      .attr("transform", `translate(${leftHalf + margin.right}, ${margin.top + 20})`);
-
-    // ---------------- UPDATE SELECTED GAME & CLUSTER ----------------
-    function updateSelectedGameAndCluster(selectedGameId, hfIndex) {
-      selectedIconGroup.html(""); // clear previous
-
-      if (!selectedGameId || hfIndex == null) return;
-
-      // ----- GAME ICON -----
-      const iconSvg = svgIcons[selectedGameId];
-      if (iconSvg) {
-        const iconGroup = selectedIconGroup.append("g").attr("class", "icon-wrapper");
-
-        // Add background circle
-        const circleRadius = margin.right; // same as before
-        iconGroup.append("circle")
-          .attr("r", circleRadius)
-          .attr("fill", "#f0f0f0")
-          .attr("stroke", "#999")
-          .attr("stroke-width", 1);
-
-        // Add the icon SVG
-        const gIcon = iconGroup.append("g").html(iconSvg);
-
-        // Scale and center icon inside circle
-        const bbox = gIcon.node().getBBox();
-        const scale = (circleRadius * 1.35) / Math.max(bbox.width, bbox.height);
-        gIcon.attr("transform",
-          `translate(${-bbox.x * scale - bbox.width * scale / 2},${-bbox.y * scale - bbox.height / 2}) scale(${scale})`
-        );
+      if (tickInputs.length === 0) {
+        trajDiv.innerHTML = "<p>No tick data.</p>";
+        trajectoryCaption.html(`<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`);
+        return;
       }
 
-      // ----- CLUSTER COLOR -----
-      const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
-      const selectedClusterId = pointData?.cluster;
+      // ---------------- CONFIG ----------------
+      const CURSOR_UP_COLOR = "#ddd";
+      const CURSOR_DOWN_COLOR = "black";
+      const width = trajDiv.clientWidth;
+      const height = trajDiv.clientHeight;
+      const margin = { top: 10, right: 10, bottom: 10, left: 10 };
+      const MAX_TRAIL = 600;
+      const FADE_DURATION = 600;
+      const FADE_DELAY = 2000;
+      const EASING = d3.easeCubic;
 
-      const clusterColor = colorMap[selectedClusterId] || "#888";
-      if (selectedClusterId != null) {
-        const squareSize = margin.top / 2;
-        selectedIconGroup.append("rect")
-          .attr("x", -squareSize * 2.5)
-          .attr("y", -squareSize / 2)
-          .attr("width", squareSize)
-          .attr("height", squareSize)
-          .attr("fill", clusterColor)
-          .attr("stroke", "#333")
-          .attr("stroke-width", 1)
-          .attr("opacity", 0.9);
+      // ---------------- SVG ----------------
+      const svg = d3.select(`#${targetDivId}`)
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("viewBox", `0 0 ${width} ${height}`)
+        .attr("preserveAspectRatio", "xMinYMin meet");
+
+      // ---------------- LAYOUT SPLIT ----------------
+      const leftHalf = width / 2;
+
+      // ---------------- LEFT BACKGROUND ----------------
+      svg.append("rect")
+        .attr("x", margin.left)
+        .attr("y", margin.top)
+        .attr("width", leftHalf - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom)
+        .attr("fill", "#f9f9f9")
+        .attr("stroke", "#ccc")
+        .attr("stroke-width", 1);
+
+      // ---------------- SCALES ----------------
+      const xScale = d3.scaleLinear()
+        .domain(d3.extent(tickInputs, d => d.x))
+        .range([margin.left, leftHalf - margin.right]);
+
+      const yScale = d3.scaleLinear()
+        .domain(d3.extent(tickInputs, d => d.y))
+        .range([height - margin.bottom, margin.top]);
+
+      // ---------------- ICON + CLUSTER GROUP ----------------
+      const selectedIconGroup = svg.append("g")
+        .attr("class", "selected-game-icon")
+        .attr("transform", `translate(${leftHalf + margin.right}, ${margin.top + 20})`);
+
+      // ---------------- UPDATE SELECTED GAME & CLUSTER ----------------
+      function updateSelectedGameAndCluster(selectedGameId, hfIndex) {
+        selectedIconGroup.html(""); // clear previous
+
+        if (!selectedGameId || hfIndex == null) return;
+
+        // ----- GAME ICON -----
+        const iconSvg = svgIcons[selectedGameId];
+        if (iconSvg) {
+          const iconGroup = selectedIconGroup.append("g").attr("class", "icon-wrapper");
+
+          // Add background circle
+          const circleRadius = margin.right; // same as before
+          iconGroup.append("circle")
+            .attr("r", circleRadius)
+            .attr("fill", "#f0f0f0")
+            .attr("stroke", "#999")
+            .attr("stroke-width", 1);
+
+          // Add the icon SVG
+          const gIcon = iconGroup.append("g").html(iconSvg);
+
+          // Scale and center icon inside circle
+          const bbox = gIcon.node().getBBox();
+          const scale = (circleRadius * 1.35) / Math.max(bbox.width, bbox.height);
+          gIcon.attr("transform",
+            `translate(${-bbox.x * scale - bbox.width * scale / 2},${-bbox.y * scale - bbox.height / 2}) scale(${scale})`
+          );
+        }
+
+        // ----- CLUSTER COLOR -----
+        const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
+        const selectedClusterId = pointData?.cluster;
+
+        const clusterColor = colorMap[selectedClusterId] || "#888";
+        if (selectedClusterId != null) {
+          const squareSize = margin.top / 2;
+          selectedIconGroup.append("rect")
+            .attr("x", -squareSize * 2.5)
+            .attr("y", -squareSize / 2)
+            .attr("width", squareSize)
+            .attr("height", squareSize)
+            .attr("fill", clusterColor)
+            .attr("stroke", "#333")
+            .attr("stroke-width", 1)
+            .attr("opacity", 0.9);
+        }
       }
-    }
 
-    // Call initial state
-    updateSelectedGameAndCluster(gameTypeToId[gameType], hfIndex);
+      // Call initial state
+      updateSelectedGameAndCluster(gameTypeToId[gameType], hfIndex);
 
-    // ---------------- CURSOR ----------------
-    const cursor = svg.append("circle")
-      .attr("r", 5)
-      .attr("fill", CURSOR_UP_COLOR)
-      .attr("opacity", 0.8);
+      // ---------------- CURSOR ----------------
+      const cursor = svg.append("circle")
+        .attr("r", 5)
+        .attr("fill", CURSOR_UP_COLOR)
+        .attr("opacity", 0.8);
 
-    const trailData = [];
+      const trailData = [];
 
-    // ---------------- LEGEND ----------------
-    const legendItems = [
-      { label: "Mouse Up", color: CURSOR_UP_COLOR },
-      { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
-    ];
+      // ---------------- LEGEND ----------------
+      const legendItems = [
+        { label: "Mouse Up", color: CURSOR_UP_COLOR },
+        { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
+      ];
 
-    const legendGroup = svg.append("g")
-      .attr("transform", `translate(${margin.left}, ${height - margin.bottom - 10})`);
+      const legendGroup = svg.append("g")
+        .attr("transform", `translate(${margin.left}, ${height - margin.bottom - 10})`);
 
-    let cursorX = 0;
-    const dotRadius = 5, textOffset = 4;
-    let sampleText = legendGroup.append("text").text("")
-      .attr("x", 0)
-      .attr("y", -15)
-      .attr("dominant-baseline", "middle")
-      .attr("class", "legend-text");
-
-    legendItems.forEach(item => {
-      legendGroup.append("circle").attr("r", dotRadius).attr("fill", item.color).attr("cx", cursorX).attr("cy", 0);
-      legendGroup.append("text").text(item.label)
-        .attr("x", cursorX + dotRadius + textOffset)
-        .attr("y", 0)
+      let cursorX = 0;
+      const dotRadius = 5, textOffset = 4;
+      let sampleText = legendGroup.append("text").text("")
+        .attr("x", 0)
+        .attr("y", -15)
         .attr("dominant-baseline", "middle")
         .attr("class", "legend-text");
-      cursorX += dotRadius * 2 + textOffset + item.label.length * 6 + 10;
-    });
+
+      legendItems.forEach(item => {
+        legendGroup.append("circle").attr("r", dotRadius).attr("fill", item.color).attr("cx", cursorX).attr("cy", 0);
+        legendGroup.append("text").text(item.label)
+          .attr("x", cursorX + dotRadius + textOffset)
+          .attr("y", 0)
+          .attr("dominant-baseline", "middle")
+          .attr("class", "legend-text");
+        cursorX += dotRadius * 2 + textOffset + item.label.length * 6 + 10;
+      });
 
       // ---------------- ANIMATION ----------------
       let i = 0;
