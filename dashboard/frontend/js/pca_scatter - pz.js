@@ -595,6 +595,12 @@ Promise.all([
       const clusterId = d.id;
 
       g.select("rect")
+      g.select(".icon-wrapper svg")
+        .style("stroke",
+          isSelected ? "#FFFFFF" :
+            isHovered ? "#E6E6E6" :
+              "#CCCCCC"
+        )
         .attr("stroke-width", state.selectedClusters.has(clusterId) ? 2 : 1);
 
       g.select("text")
@@ -649,8 +655,8 @@ Promise.all([
   // --- Circle background ---
   filterItems.append("circle")
     .attr("r", circleRadius)
-    .attr("fill", "#f0f0f0")
-    .attr("stroke", "#999")
+    .attr("fill", "#999999")
+    .attr("stroke", "#CCCCCC")
     .attr("stroke-width", 2);
 
   // --- Icon ---
@@ -714,6 +720,11 @@ Promise.all([
         .attr("stroke",
           isSelected ? "#FFFFFF" :
             isHovered ? "#E6E6E6" :
+              "#CCCCCC"
+        )
+        .attr("stroke",
+          isSelected ? "#FFFFFF" :
+            isHovered ? "#BFBFBF" :
               "#999999"
         )
         .attr("stroke-width", isHovered || isSelected ? 3 : 2);
@@ -724,8 +735,14 @@ Promise.all([
         .classed("selected", isSelected);
 
       // --- Icon ---
-      g.select(".icon-wrapper")
+      g.select(".icon-wrapper svg")
+        .style("fill",
+          isSelected ? "#FFFFFF" :
+            isHovered ? "#E6E6E6" :
+              "#CCCCCC"
+        )
         .style("opacity", isHovered || isSelected ? 1 : 0.65);
+
     });
   }
 
