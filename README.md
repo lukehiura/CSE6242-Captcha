@@ -15,15 +15,15 @@ CSE6242-Captcha/
 
   dashboard/
     data/                   # JSON written by the notebook (committed or regenerated locally)
-      scatter_points.json   # PCA x/y, cluster, game_type, key features (for scatter + tooltips)
+      scatter_points.json   # includes hf_index (= cohort_row 0..n-1; matches /session/<id>, not HF’s repeating `index`)
       cluster_profiles.json # Per-cluster mean features (normalized)
       cluster_meta.json     # Cluster ids, display names, short descriptions
     frontend/
-      index.html            # Dashboard shell (visualizations in progress)
+      index.html            # Dashboard UI
       game.js               # WASM glue (add when wiring the live game)
       game.wasm             # CAPTCHA engine (add when wiring the live game)
     backend/
-      app.py                # Flask API (CORS + /health; classify endpoint TBD)
+      app.py                # Flask: /api/*.json from ../data/, /session/<hf_index>, /health
 
   proposal/
     paper.tex
@@ -64,20 +64,22 @@ uv run jupyter notebook notebook/CaptchaSolve.ipynb
 
 Select the **CSE6242** kernel. Run all cells through the export section. That refreshes `dashboard/data/*.json`.
 
-### Step 4 — Run the app (optional)
+### Step 4 — Run the dashboard
+
+The UI reads **`dashboard/data/*.json` through Flask** (no duplicate copies under `frontend/data/`).
 
 Open two terminals:
 
 ```bash
-# Terminal 1 — API (default port 5001)
+# Terminal 1 — API + JSON (port 5001). Must be up first.
 uv run python dashboard/backend/app.py
 
-# Terminal 2 — static frontend
+# Terminal 2 — static HTML/JS only
 cd dashboard/frontend
 python3 -m http.server 8000
 ```
 
-Open [http://localhost:8000](http://localhost:8000). The backend health check is [http://127.0.0.1:5001/health](http://127.0.0.1:5001/health).
+Open [http://localhost:8000](http://localhost:8000). Data: `http://127.0.0.1:5001/api/scatter_points.json`, etc. Health: [http://127.0.0.1:5001/health](http://127.0.0.1:5001/health). Set `HF_TOKEN` if needed for `/session/...`.
 
 ---
 
