@@ -59,13 +59,13 @@ Promise.all([
 
   // Radar hover fill (point hover polygon)
   const RADAR_HOVER_FILL_OPACITY = 0.15;
-  const RADAR_HOVER_STROKE_WIDTH = 1.5;
+  const RADAR_HOVER_STROKE_WIDTH = 0.5;
 
   // Radar filter-preview opacity (centroid paths dimmed for non-matching clusters)
   const RADAR_PREVIEW_OPACITY = 0.15;
 
   // Scatter selected-point highlight
-  const SCATTER_SELECTED_STROKE = "#111";
+  const SCATTER_SELECTED_STROKE = "#FFFFFF";
   const SCATTER_SELECTED_STROKE_WIDTH = 2;
   const SCATTER_SELECTED_R = 1.5;            // slightly larger when selected
 
@@ -81,7 +81,7 @@ Promise.all([
   const FADE_DURATION = 1500;
 
   // Delay before fade starts after animation completes
-  const FADE_DELAY = 5000;
+  const FADE_DELAY = 10000;
 
   // Optional: easing for smoother animations (recommended)
   const EASING = d3.easeCubicOut;
@@ -158,31 +158,36 @@ Promise.all([
   // X axis at origin
   svg.append("g")
     .attr("transform", `translate(0,${y0})`)
-    .call(d3.axisBottom(x).ticks(6));
+    .call(d3.axisBottom(x).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
   // Y axis at origin
   svg.append("g")
     .attr("transform", `translate(${x0},0)`)
-    .call(d3.axisLeft(y).ticks(6));
+    .call(d3.axisLeft(y).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
-  // Axis labels
-  svg.append("text")
-    .attr("x", x0)
-    .attr("y", margin.top - axisLabelOffset)
-    .attr("text-anchor", "middle")
-    .style("font-size", "14px")
-    .style("font-weight", "semi bold")
-    .text("PC1");
+// Axis labels
+svg.append("text")
+  .attr("x", x0)
+  .attr("y", margin.top - axisLabelOffset)
+  .attr("text-anchor", "middle")
+  .style("font-size", "14px")
+  .style("font-weight", "600")
+  .style("fill", "#444444")
+  .text("PC1");
 
-  svg.append("text")
-    .attr("x", margin.left + width + axisLabelOffset)
-    .attr("y", y0 + 1.5)
-    .attr("text-anchor", "start")
-    .attr("dominant-baseline", "middle")
-    .style("font-size", "14px")
-    .style("font-weight", "semi bold")
-    .text("PC2");
-
+svg.append("text")
+  .attr("x", margin.left + width + axisLabelOffset)
+  .attr("y", y0 + 1.5)
+  .attr("text-anchor", "start")
+  .attr("dominant-baseline", "middle")
+  .style("font-size", "14px")
+  .style("font-weight", "600")
+  .style("fill", "#444444")
+  .text("PC2");
   // ---------------- SCATTER POINTS ----------------
   let circles = svg.selectAll(".point-circle")
     .data(points, d => d.id)
@@ -206,15 +211,17 @@ Promise.all([
     .style("pointer-events", "none")
     .style("opacity", 0)
     .style("z-index", 9999)
-    .style("background", "rgba(0,0,0,0.7)")
-    .style("color", "white")
-    .style("padding", "6px")
+    .style("background", "rgba(10,10,10,0.92)")
+    .style("color", "#BFBFBF")
+    .style("border", "1px solid #333")
+    .style("padding", "5px 7px")
     .style("border-radius", "4px")
-    .style("font-size", "0.85rem")
+    .style("font-size", "11px")
+    .style("line-height", "1.5")
     .style("transition", "opacity 0.15s")
     .style("display", "inline-block")
-    .style("white-space", "normal")
-    .style("max-width", "250px");
+    .style("white-space", "nowrap")
+    .style("max-width", "200px");
 
 
   function buildTooltipHTML(d) {
@@ -360,7 +367,7 @@ Promise.all([
     .attr("y", bbox.y - 1)
     .attr("width", bbox.width + 4)
     .attr("height", bbox.height + 2)
-    .attr("fill", "#ddd")
+    .attr("fill", "#2a2a2a")
     .attr("rx", 2);
 
   // Reveal final text and remove temp
@@ -372,19 +379,20 @@ Promise.all([
     radarSvg.append("circle")
       .attr("r", radarRadius * (i / ringCount))
       .attr("fill", "none")
-      .attr("stroke", "#ccc")
-      .attr("stroke-dasharray", "2,2");
+      .attr("stroke", "#2a2a2a")
+      .attr("stroke-width", 0.8)
+      .attr("stroke-dasharray", "2,3");
   }
 
   // Feature axes and labels
   features.forEach((f, i) => {
     const angle = i * angleSlice - Math.PI / 2;
-    // Axis line
     radarSvg.append("line")
       .attr("x1", 0).attr("y1", 0)
       .attr("x2", Math.cos(angle) * radarRadius)
       .attr("y2", Math.sin(angle) * radarRadius)
-      .attr("stroke", "#999");
+      .attr("stroke", "#333333")
+      .attr("stroke-width", 0.8);
     // Axis label
     radarSvg.append("text")
       .attr("x", Math.cos(angle) * (radarRadius + 12))
@@ -593,19 +601,19 @@ Promise.all([
     svg.selectAll(".legend-item").each(function (d) {
       const g = d3.select(this);
       const clusterId = d.id;
+      const isHovered = state.hoveredCluster === clusterId;
+      const isSelected = state.selectedClusters.has(clusterId);
 
       g.select("rect")
-      g.select(".icon-wrapper svg")
-        .style("stroke",
+        .attr("stroke",
           isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
+            isHovered ? "#E6E6E6" : "#555555"
         )
-        .attr("stroke-width", state.selectedClusters.has(clusterId) ? 2 : 1);
+        .attr("stroke-width", isSelected ? 2 : 1);
 
       g.select("text")
-        .classed("hovered", state.hoveredCluster === clusterId)
-        .classed("selected", state.selectedClusters.has(clusterId));
+        .classed("hovered", isHovered)
+        .classed("selected", isSelected);
     });
   }
 
@@ -715,34 +723,39 @@ Promise.all([
       const isHovered = state.hoveredGame === d.id;
       const isSelected = state.selectedGames.has(d.id);
 
-      // --- Circle ---
+      // --- Circle background ---
       g.select("circle")
-        .attr("stroke",
-          isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
+        .attr("fill",
+          isSelected ? "#444444" :
+            isHovered ? "#333333" : "#222222"
         )
         .attr("stroke",
           isSelected ? "#FFFFFF" :
-            isHovered ? "#BFBFBF" :
-              "#999999"
+            isHovered ? "#E6E6E6" : "#555555"
         )
-        .attr("stroke-width", isHovered || isSelected ? 3 : 2);
+        .attr("stroke-width", isHovered || isSelected ? 2.5 : 1.5);
 
       // --- Text ---
       g.select("text")
         .classed("hovered", isHovered)
         .classed("selected", isSelected);
 
-      // --- Icon ---
-      g.select(".icon-wrapper svg")
-        .style("fill",
-          isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
-        )
-        .style("opacity", isHovered || isSelected ? 1 : 0.65);
-
+      // --- Icon: color all child shape elements ---
+      const iconColor =
+        isSelected ? "#FFFFFF" :
+          isHovered ? "#E6E6E6" : "#999999";
+      g.select(".icon-wrapper")
+        .selectAll("path, circle, rect, polygon, ellipse, line")
+        .style("fill", function () {
+          // preserve transparent/none fills (stroke-only shapes)
+          const current = d3.select(this).style("fill");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("stroke", function () {
+          const current = d3.select(this).style("stroke");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("opacity", isHovered || isSelected ? 1 : 0.75);
     });
   }
 
@@ -872,7 +885,6 @@ Promise.all([
       .attr("fill", d => colorMap[d.cluster])
       .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
       .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
-      .attr("stroke-opcacity", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", d => {
         if (d.hf_index === state.selectedPoint) {
@@ -951,7 +963,7 @@ Promise.all([
     allCircles
       .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R : 1.5)
       .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
-      .attr("stroke-width", d => d.hf_index === state.selectedPoint ? 1 : SCATTER_SELECTED_OPACITY)
+      .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
       .transition().duration(HOVER_OUT_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY);
   }
@@ -983,10 +995,11 @@ Promise.all([
       const gameLabel = gameFilters.find(f => f.id === gameId)?.label || gameType;
 
       // ---------------- CONFIG ----------------
-      const CURSOR_UP_COLOR = "#bbb";
-      const CURSOR_DOWN_COLOR = "#222";
+      const CURSOR_UP_COLOR = "#555555";
+      const CURSOR_DOWN_COLOR = "#FFFFFF";
       const MAX_TRAIL = 500;
       const CHAR_DELAY = 28 * 3;   // ms per character for typewriter
+      const LINE_DELAY = CHAR_DELAY * 20;   // ms per line for typewriter
       const FADE_OUT_DURATION = 800;
       const FADE_OUT_DELAY = 7000;
 
@@ -1006,11 +1019,17 @@ Promise.all([
       const rightX = totalW / 2 + padOuter;
       const rightW = totalW / 2 - padOuter * 2;
 
+      // ---- fade in the trajectory wrapper header ----
+      d3.select("#trajectory-wrapper h3")
+        .style("opacity", 0)
+        .transition().duration(400).ease(d3.easeCubicOut)
+        .style("opacity", 1);
+
       // ---------------- SVG ----------------
       const tSvg = d3.select(`#${targetDivId}`)
         .append("svg")
-        .attr("width", totalW)
-        .attr("height", totalH)
+        .attr("width", "100%")
+        .attr("height", "100%")
         .attr("viewBox", `0 0 ${totalW} ${totalH}`)
         .attr("preserveAspectRatio", "xMinYMin meet");
 
@@ -1025,8 +1044,8 @@ Promise.all([
       tSvg.append("rect")
         .attr("x", plotX).attr("y", plotY)
         .attr("width", plotSize).attr("height", plotSize)
-        .attr("fill", "#f9f9f9")
-        .attr("stroke", "#ddd")
+        .attr("fill", "#111111")
+        .attr("stroke", "#333333")
         .attr("stroke-width", 1)
         .attr("rx", 4);
 
@@ -1049,21 +1068,22 @@ Promise.all([
         .attr("opacity", 0.85)
         .attr("clip-path", `url(#${clipId})`);
 
-      // ---- sample counter (bottom of plot) ----
-      const sampleText = tSvg.append("text")
-        .attr("x", plotX + plotSize / 2)
-        .attr("y", plotY + plotSize + 14)
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "hanging")
-        .attr("class", "filters-text")
-        .attr("opacity", 0);
 
       // ---- legend (bottom-left of plot) ----
       const legendY = plotY + plotSize + padOuter / 2;
       [[CURSOR_UP_COLOR, "Mouse up"], [CURSOR_DOWN_COLOR, "Mouse down"]].forEach(([color, label], li) => {
-        tSvg.append("circle").attr("cx", plotX + li * 90).attr("cy", legendY + 1).attr("r", 4).attr("fill", color).attr("stroke", "#E6E6E6").attr("stroke-width", 0.5);
-        tSvg.append("text").attr("x", plotX + li * 90 + 8).attr("y", legendY + 1).attr("dominant-baseline", "middle").attr("class", "filters-text").text(label);
+        tSvg.append("circle").attr("cx", 4 + plotX + li * 90).attr("cy", legendY).attr("r", 4).attr("fill", color).attr("stroke", "#E6E6E6").attr("stroke-width", 0.5);
+        tSvg.append("text").attr("x", 4 + plotX + li * 90 + 8).attr("y", legendY + 1).attr("dominant-baseline", "middle").attr("class", "filters-text").text(label);
       });
+
+      // ---- sample counter (bottom right of plot) ----
+      const sampleText = tSvg.append("text")
+        .attr("x", plotX + plotSize)
+        .attr("y", legendY)
+        .attr("text-anchor", "end")
+        .attr("dominant-baseline", "middle")
+        .attr("class", "filters-text")
+        .attr("opacity", 0);
 
       // ==================== RIGHT PANEL ====================
       const iconRadius = Math.min(rightW * 0.18, 28);
@@ -1074,8 +1094,8 @@ Promise.all([
       const badgeCircle = tSvg.append("circle")
         .attr("cx", iconCX).attr("cy", iconCY)
         .attr("r", iconRadius)
-        .attr("fill", "#f0f0f0")
-        .attr("stroke", "#999")
+        .attr("fill", "#1e1e1e")
+        .attr("stroke", "#555555")
         .attr("stroke-width", 1.5);
 
       // ---- badge icon ----
@@ -1162,22 +1182,28 @@ Promise.all([
         .attr("opacity", 0)
         .text("");
 
-      // ---- typewriter engine ----
-      // Chains all lines sequentially, then calls onDone when complete
-      function typeLines(lines, nodes, charDelay, onDone) {
+      function typeLines(lines, nodes, charDelay, lineDelay, onDone) {
         let lineIdx = 0;
+
         function typeLine(li) {
           if (li >= lines.length) { if (onDone) onDone(); return; }
+
           const full = lines[li];
           let ci = 0;
+
           function typeChar() {
-            if (ci > full.length) { typeLine(li + 1); return; }
+            if (ci > full.length) {
+              setTimeout(() => typeLine(li + 1), lineDelay);
+              return;
+            }
             nodes[li].text(full.slice(0, ci));
             ci++;
             setTimeout(typeChar, charDelay);
           }
+
           typeChar();
         }
+
         typeLine(0);
       }
 
@@ -1225,8 +1251,10 @@ Promise.all([
 
       // ---- fade everything out ----
       function fadeSelectedUI() {
-        const allTrajNodes = tSvg.selectAll("*");
-        allTrajNodes.transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
+        tSvg.selectAll("*").transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
+        d3.select("#trajectory-wrapper h3")
+          .transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut)
+          .style("opacity", 0);
       }
 
       // ==================== ANIMATION LOOP ====================
@@ -1243,9 +1271,9 @@ Promise.all([
         }
 
         // kick off typewriter after first few frames
-        if (!typewriterStarted && animFrame > 20) {
+        if (!typewriterStarted && animFrame > 100) {
           typewriterStarted = true;
-          typeLines(statsLines, typeNodes, CHAR_DELAY, null);
+          typeLines(statsLines, typeNodes, CHAR_DELAY, LINE_DELAY, null);
         }
 
         const point = tickInputs[animFrame];
