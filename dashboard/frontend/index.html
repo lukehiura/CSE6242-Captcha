@@ -1,270 +1,225 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PCA Scatter Dashboard</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: sans-serif;
-      background: #f9f9f9;
-      color: #111;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaptchaCapture — Dashboard</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+}
 
-    #dashboard {
-      width: 90vw;
-      max-width: 1600px;
-      margin: auto;
-      display: flex;
-      gap: 30px;
-      padding: 20px 0;
-    }
+#dashboard {
+  width: 90vw;
+  max-width: 1600px;
+  margin: var(--nav-h) auto 0;
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+  gap: 10px;
+  min-height: 600px;
+}
 
-    /* LEFT: Scatter */
-    #scatter-wrapper {
-      flex: 2;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
+#scatter-wrapper, #radar-wrapper, #trajectory-wrapper, #filter-wrapper, #selected-point-info-wrapper {
+  display: grid;
+  grid-template-rows: 50px 1fr;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+#scatter-wrapper h3, #radar-wrapper h3, #trajectory-wrapper h3, #filter-wrapper h3, #selected-point-info-wrapper h3 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
 
-    #scatter-wrapper h3 {
-      margin: 0;
-      padding: 10px;
-      text-align: center;
-      font-size: 1rem;
-      flex: 0 0 40px;
-    }
+#scatter-wrapper { grid-column: 1 / span 8; grid-row: 1 / span 8; padding: 10px; }
+#scatter-plot { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; 
+  display: block; }
+#scatter-plot svg { width: 100%; height: 100%; display: block; }
 
-    #selection-context {
-      text-align: center;
-      font-size: 0.82rem;
-      padding: 0 12px 8px;
-      line-height: 1.35;
-      color: #333;
-      border-bottom: 1px solid #eee;
-    }
+#radar-wrapper { grid-column: 9 / span 4; grid-row: 1 / span 4; padding: 10px; }
+#radar { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+#radar svg { width: 100%; height: 100%; display: block; }
 
-    #selection-context .game-pill {
-      display: inline-block;
-      font-weight: 700;
-      font-size: 0.88rem;
-      color: #111;
-      background: #e8f4fc;
-      border: 1px solid #b8d4ea;
-      border-radius: 999px;
-      padding: 2px 10px;
-      margin: 0 4px;
-    }
+#filter-wrapper { grid-column: 13 / span 4; grid-row: 1 / span 4; padding: 10px; }
+#filter-container { width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
 
-    #selection-context.muted {
-      color: #888;
-      font-style: italic;
-    }
+#trajectory-wrapper {
+  grid-column: 9 / span 8;
+  grid-row: 5 / span 4;
+  padding: 10px;
+  overflow: visible;
+  display: grid;
+  grid-template-rows: 50px 1fr;
+}
+#trajectory-plot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+#trajectory-plot canvas,
+#trajectory-plot svg { display: block; }
+#trajectory-caption { font-size: 0.9rem; text-align: center; margin-top: 5px; color: #fff; }
 
-    #scatter-plot {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      position: relative;
-    }
+#selected-point-info-wrapper {
+  grid-column: 1 / span 7;
+  grid-row: 9 / span 1;
+  padding: 6px 10px;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+}
+#selected-point-info { width: 100%; }
 
-    #scatter-plot svg {
-      max-width: 100%;
-      max-height: 100%;
-      display: block;
-    }
+.tooltip-style {
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  white-space: normal;
+  max-width: 250px;
+}
 
-    /* RIGHT: Legend + Radar */
-    #right-column {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+.filters-text {
+  font-size: 12px;
+  fill: #BFBFBF;
+  font-weight: normal;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
 
-    #clusters-wrapper {
-      flex: 0 0 150px;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      padding: 10px;
-      overflow-y: auto;
-      align-items: center;
-    }
+.filters-text.hovered {
+  fill: #E6E6E6;
+  font-weight: bold;
+}
 
-    #clusters-wrapper h3 {
-      margin: 0 0 5px 0;
-      font-size: 0.9rem;
-      text-align: center;
-    }
+.filters-text.selected {
+  fill: #FFFFFF;
+  font-weight: bold;
+}
 
-    #legend {
-      flex: 1;
-      width: 100%;
-      font-size: 0.8rem;
-    }
+.radar-legend-highlighted-line {
+  font-size: 12px;
+  paint-order: stroke;
+  stroke: #BFBFBF;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
 
-    .legend-row {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      margin-bottom: 4px;
-      width: 100%;
-      justify-content: flex-start;
-    }
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  height: 100%;
+}
+.stats-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 180px;
+}
+.stats-cluster-pill {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 3px 12px;
+  white-space: nowrap;
+}
+.stats-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding-left: 2px;
+}
+.stats-metrics {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.stats-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 64px;
+}
+.stats-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stats-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  line-height: 1;
+}
+.stats-unit {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
 
-    .legend-row span.color-box {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin-right: 6px;
-    }
-
-    .legend-row span.label {
-      flex: 1;
-    }
-
-    #radar-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      padding: 10px;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-
-    #radar-wrapper h3 {
-      margin: 0 0 5px 0;
-      font-size: 0.9rem;
-      text-align: center;
-    }
-
-    #radar-wrapper .info {
-      font-size: 0.7rem;
-      text-align: center;
-      margin-bottom: 4px;
-    }
-
-    #radar {
-      width: 100%;
-      max-width: 350px;
-      height: 350px;
-    }
-
-    #trajectory-wrapper {
-      flex: 0 0 auto;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      padding: 10px;
-      align-items: center;
-    }
-
-    #trajectory-wrapper h3 {
-      margin: 0 0 5px 0;
-      font-size: 0.9rem;
-      text-align: center;
-    }
-
-    #trajectory-wrapper .info {
-      font-size: 0.7rem;
-      text-align: center;
-      margin-bottom: 6px;
-      color: #444;
-    }
-
-    #trajectory {
-      width: 100%;
-      max-width: 350px;
-      min-height: 280px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    #trajectory svg {
-      display: block;
-    }
-
-    #tooltip {
-      position: absolute;
-      padding: 6px;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      border-radius: 4px;
-      pointer-events: none;
-      opacity: 0;
-      font-size: 0.85rem;
-      z-index: 10;
-    }
-
-  </style>
+</style>
 </head>
 <body>
-
-  <div id="dashboard">
-
-    <!-- LEFT: PCA Scatter -->
-    <div id="scatter-wrapper">
-      <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
-      <div id="selection-context" class="muted">Click a point to see game type and trajectory.</div>
-      <div id="scatter-plot"></div>
-    </div>
-
-    <!-- RIGHT: Legend + Radar -->
-    <div id="right-column">
-
-      <!-- CLUSTERS -->
-      <div id="clusters-wrapper">
-        <h3>PCA Clusters</h3>
-        <div id="legend"></div>
-      </div>
-
-      <!-- RADAR -->
-      <div id="radar-wrapper">
-        <h3>Behavior Profile Radar</h3>
-        <div class="info">
-          <span style="color:#000;">Black outline:</span> cluster centroid averages,
-          <span style="opacity:0.4;">filled polygon:</span> selected point behavior
-        </div>
-        <div id="radar"></div>
-      </div>
-
-      <!-- path viz, needs backend running -->
-      <div id="trajectory-wrapper">
-        <h3>Mouse trajectory</h3>
-        <div class="info" id="trajectory-caption">click a dot to load path</div>
-        <div id="trajectory"></div>
-      </div>
-
-    </div>
-
+<nav class="cc-nav">
+  <span class="cc-nav-logo">
+    Captcha<span class="accent">Capture</span><span class="cc-nav-section">/ Dashboard</span>
+  </span>
+  <a href="/" class="cc-nav-link">← Play game</a>
+</nav>
+<div id="dashboard">
+  <div id="scatter-wrapper">
+    <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
+    <div id="scatter-plot"></div>
   </div>
 
-  <div id="tooltip"></div>
+  <div id="radar-wrapper">
+    <h3>Behavior Profile Radar</h3>
+    <div id="radar"></div>
+  </div>
 
-  <!-- D3 -->
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="js/pca_scatter.js"></script>
+  <div id="filter-wrapper">
+    <h3>Game Type</h3>
+    <div id="filter-container"></div>
+  </div>
+
+  <div id="trajectory-wrapper">
+    <h3>Mouse Trajectory</h3>
+    <div id="trajectory-plot"></div>
+    <div id="trajectory-caption"></div>
+  </div>
+
+  <div id="selected-point-info-wrapper">
+    <div id="selected-point-info"></div>
+  </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="js/dashboard_api_base.js"></script>
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/svg_icons.js"></script>
+<script src="js/radar.js"></script>
+<script src="js/trajectory.js"></script>
+<script src="js/filters.js"></script>
+<script src="js/scatter.js"></script>
+<script src="js/dashboard.js"></script>
 
 </body>
 </html>
