@@ -245,7 +245,11 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       ctx.strokeStyle = "#2e2e45";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(plotX, plotY, plotSz, plotSz, 4);
+      if (typeof ctx.roundRect === "function") {
+        ctx.roundRect(plotX, plotY, plotSz, plotSz, 4);
+      } else {
+        ctx.rect(plotX, plotY, plotSz, plotSz);
+      }
       ctx.fill();
       ctx.stroke();
     }

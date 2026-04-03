@@ -51,7 +51,7 @@ function initScatter(points, clusters) {
     .attr("text-anchor", "start").attr("dominant-baseline", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC2");
 
   circles = svg.selectAll(".point-circle")
-    .data(points, d => d.id)
+    .data(points, d => d.hf_index)
     .enter().append("circle")
     .attr("class", "point-circle")
     .attr("cx", d => x(d.pca_x))
@@ -153,7 +153,7 @@ function buildStatsCardHTML(d) {
     { label: "Speed",      value: d.speed_mean.toFixed(2),      unit: "px/tick" },
     { label: "Efficiency", value: d.path_efficiency.toFixed(2), unit: "" },
     { label: "Pause rate", value: d.pause_rate.toFixed(2),      unit: "" },
-    { label: "Duration",   value: d.duration.toFixed(2),        unit: "log-s" },
+    { label: "Duration",   value: d.duration.toFixed(2),        unit: "log-ms" },
     { label: "Anomaly",    value: d.anomaly_score.toFixed(2),   unit: "" },
   ];
   return `

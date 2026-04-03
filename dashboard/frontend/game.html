@@ -593,6 +593,7 @@ async function finishGame(gameIdx, playSeed) {
     path_efficiency: computed.path_efficiency,
     pause_rate:      computed.pause_rate,
     duration:        parseFloat(Math.log(Math.max(computed.duration, 1)).toFixed(4)),
+    duration_ms:     computed.duration,
     game_type:       GAME_TYPES[gameIdx],
     puzzle_seed:     playSeed,
   };
@@ -633,7 +634,7 @@ function renderResults(result, features) {
     { key: "speed_mean",      label: "Avg Speed",  unit: "px/tick" },
     { key: "path_efficiency", label: "Efficiency", unit: "" },
     { key: "pause_rate",      label: "Pause Rate", unit: "" },
-    { key: "duration",        label: "Duration",   unit: "ms" },
+    { key: "duration_ms",     label: "Duration",   unit: "ms" },
   ];
 
   document.getElementById("results-stats").innerHTML = statDefs.map(s => {

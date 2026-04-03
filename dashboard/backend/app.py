@@ -136,12 +136,25 @@ def create_app() -> Flask:
     @app.route("/api/classify", methods=["POST"])
     def classify():
         body = request.get_json(force=True, silent=True) or {}
-        features = {
-            "speed_mean":      float(body.get("speed_mean",      0)),
-            "path_efficiency": float(body.get("path_efficiency", 0)),
-            "pause_rate":      float(body.get("pause_rate",      0)),
-            "duration":        float(body.get("duration",        0)),
-        }
+        def _parse_feat(key):
+            val = body.get(key, 0)
+            if val is None or (isinstance(val, str) and not val.strip()):
+                raise ValueError(f"Field '{key}' must be a number.")
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                raise ValueError(f"Field '{key}' must be a number.")
+
+        try:
+            features = {
+                "speed_mean":      _parse_feat("speed_mean"),
+                "path_efficiency": _parse_feat("path_efficiency"),
+                "pause_rate":      _parse_feat("pause_rate"),
+                "duration":        _parse_feat("duration"),
+            }
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
         game_type = body.get("game_type", "")
 
         all_pts = _get_scatter_pts(data_dir)
@@ -149,6 +162,9 @@ def create_app() -> Flask:
             return jsonify({"error": "scatter_points.json missing"}), 503
 
         pts = [p for p in all_pts if not p.get("is_outlier", False)]
+        if not pts:
+            return jsonify({"error": "no_scatter_points_available"}), 503
+
         if game_type:
             game_pts = [p for p in pts if p.get("game_type") == game_type] or pts
         else:
