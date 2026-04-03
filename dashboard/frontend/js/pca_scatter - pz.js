@@ -38,6 +38,7 @@ Promise.all([
 
     // Clear trajectory
     d3.select("#trajectory-plot").html("");
+    d3.select("#trajectory-caption").html("");
 
     applyFilter();
     updateLegendAppearance();
@@ -52,14 +53,13 @@ Promise.all([
   const SCATTER_SELECTED_OPACITY = 0.5;
   const SCATTER_UNSELECTED_OPACITY = 0.04; // nearly invisible when filtered out
 
-  // Radar centroid polygon fill
-  const RADAR_FILL_OPACITY = 0.18;        // filled polygon opacity (no stroke)
-  const RADAR_STROKE_WIDTH = 1.2;         // kept for hover path only
+  // Radar centroid polygon stroke
+  const RADAR_STROKE_WIDTH = 1.2;          // thinner outlines
   const RADAR_STROKE_OPACITY = 0.7;        // overall centroid path opacity
 
   // Radar hover fill (point hover polygon)
   const RADAR_HOVER_FILL_OPACITY = 0.15;
-  const RADAR_HOVER_STROKE_WIDTH = 1.5;
+  const RADAR_HOVER_STROKE_WIDTH = 0.5;
 
   // Radar filter-preview opacity (centroid paths dimmed for non-matching clusters)
   const RADAR_PREVIEW_OPACITY = 0.15;
@@ -81,7 +81,7 @@ Promise.all([
   const FADE_DURATION = 1500;
 
   // Delay before fade starts after animation completes
-  const FADE_DELAY = 5000;
+  const FADE_DELAY = 10000;
 
   // Optional: easing for smoother animations (recommended)
   const EASING = d3.easeCubicOut;
@@ -421,22 +421,21 @@ Promise.all([
     features.forEach(f => console.log(`Cluster ${c.cluster}, feature ${f}:`, c[f]));
   });
 
-  // Draw centroid paths — filled polygons, no stroke
+  // Draw centroid paths
   let centroidPaths = radarSvg.selectAll(".centroid-radar")
     .data(state.clusterCentroids, d => d.cluster)
     .join(
       enter => enter.append("path")
         .attr("class", "centroid-radar")
-        .attr("fill", d => colorMap[d.cluster])
-        .attr("fill-opacity", RADAR_FILL_OPACITY)
-        .attr("stroke", "none")
+        .attr("fill", "none")
+        .attr("stroke", d => colorMap[d.cluster])
+        .attr("stroke-width", RADAR_STROKE_WIDTH)
         .attr("opacity", RADAR_STROKE_OPACITY)
         .attr("d", d => radarLine(features.map(f => d[f]))),
       update => update
         .attr("d", d => radarLine(features.map(f => d[f])))
-        .attr("fill", d => colorMap[d.cluster])
-        .attr("fill-opacity", RADAR_FILL_OPACITY)
-        .attr("stroke", "none")
+        .attr("stroke", d => colorMap[d.cluster])
+        .attr("stroke-width", RADAR_STROKE_WIDTH)
         .attr("opacity", RADAR_STROKE_OPACITY),
       exit => exit.remove()
     );
@@ -445,9 +444,9 @@ Promise.all([
   let hoveredRadarPath = radarSvg.append("path")
     .attr("class", "point-radar")
     .attr("fill", "none")
-    .attr("stroke", "none")
+    .attr("stroke-width", RADAR_HOVER_STROKE_WIDTH)
     .attr("pointer-events", "none")
-    .style("opacity", 0);
+    .style("opacity", 0); // initially hidden
 
   // ======================== CLUSTER HIGHLIGHT FUNCTION ========================
   function highlightCluster(clusterId) {
@@ -465,15 +464,14 @@ Promise.all([
       .attr("class", "point-radar")
       .attr("d", radarLine(features.map(f => clusterData[f])))
       .attr("fill", colorMap[clusterId])
-      .attr("fill-opacity", 0.45)
-      .attr("stroke", "none")
-      .attr("opacity", 1);
+      .attr("stroke", colorMap[clusterId])
+      .attr("opacity", 0.4);
 
     // Re-append the hover preview path so it's always on top
     hoveredRadarPath = radarSvg.append("path")
       .attr("class", "point-radar")
       .attr("fill", "none")
-      .attr("stroke", "none")
+      .attr("stroke-width", RADAR_HOVER_STROKE_WIDTH)
       .attr("pointer-events", "none")
       .style("opacity", 0);
 
@@ -500,12 +498,12 @@ Promise.all([
       // Tooltip
       tooltip.html(buildTooltipHTML(d)).style("opacity", 1);
 
-      // Radar polygon hover — filled, no stroke, sits on top of centroid fills
+      // Radar polygon hover
       hoveredRadarPath.transition().duration(HOVER_IN_DURATION)
         .attr("d", radarLine(features.map(f => d[f])))
+        .attr("stroke", colorMap[d.cluster])
         .attr("fill", colorMap[d.cluster])
-        .attr("fill-opacity", 0.45)
-        .attr("stroke", "none")
+        .attr("fill-opacity", RADAR_HOVER_FILL_OPACITY)
         .style("opacity", 1);
     })
       .on("mousemove", event => {
@@ -602,18 +600,18 @@ Promise.all([
     svg.selectAll(".legend-item").each(function (d) {
       const g = d3.select(this);
       const clusterId = d.id;
-      const isHovered  = state.hoveredCluster === clusterId;
+      const isHovered = state.hoveredCluster === clusterId;
       const isSelected = state.selectedClusters.has(clusterId);
 
       g.select("rect")
         .attr("stroke",
           isSelected ? "#FFFFFF" :
-          isHovered  ? "#E6E6E6" : "#555555"
+            isHovered ? "#E6E6E6" : "#555555"
         )
         .attr("stroke-width", isSelected ? 2 : 1);
 
       g.select("text")
-        .classed("hovered",  isHovered)
+        .classed("hovered", isHovered)
         .classed("selected", isSelected);
     });
   }
@@ -721,38 +719,38 @@ Promise.all([
   function updateFilterAppearance() {
     filterItems.each(function (d) {
       const g = d3.select(this);
-      const isHovered  = state.hoveredGame === d.id;
+      const isHovered = state.hoveredGame === d.id;
       const isSelected = state.selectedGames.has(d.id);
 
       // --- Circle background ---
       g.select("circle")
         .attr("fill",
           isSelected ? "#444444" :
-          isHovered  ? "#333333" : "#222222"
+            isHovered ? "#333333" : "#222222"
         )
         .attr("stroke",
           isSelected ? "#FFFFFF" :
-          isHovered  ? "#E6E6E6" : "#555555"
+            isHovered ? "#E6E6E6" : "#555555"
         )
         .attr("stroke-width", isHovered || isSelected ? 2.5 : 1.5);
 
       // --- Text ---
       g.select("text")
-        .classed("hovered",  isHovered)
+        .classed("hovered", isHovered)
         .classed("selected", isSelected);
 
       // --- Icon: color all child shape elements ---
       const iconColor =
         isSelected ? "#FFFFFF" :
-        isHovered  ? "#E6E6E6" : "#999999";
+          isHovered ? "#E6E6E6" : "#999999";
       g.select(".icon-wrapper")
         .selectAll("path, circle, rect, polygon, ellipse, line")
-        .style("fill",   function() {
+        .style("fill", function () {
           // preserve transparent/none fills (stroke-only shapes)
           const current = d3.select(this).style("fill");
           return (current === "none" || current === "transparent") ? current : iconColor;
         })
-        .style("stroke", function() {
+        .style("stroke", function () {
           const current = d3.select(this).style("stroke");
           return (current === "none" || current === "transparent") ? current : iconColor;
         })
@@ -793,18 +791,17 @@ Promise.all([
     joined.enter()
       .append("path")
       .attr("class", "centroid-radar")
-      .attr("fill", d => colorMap[d.cluster])
-      .attr("fill-opacity", RADAR_FILL_OPACITY)
-      .attr("stroke", "none")
+      .attr("fill", "none")
+      .attr("stroke", d => colorMap[d.cluster])
+      .attr("stroke-width", RADAR_STROKE_WIDTH)
       .attr("d", d => radarLine(features.map(f => d[f])))
       .attr("opacity", 0)
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", RADAR_STROKE_OPACITY);
 
     joined
-      .attr("fill", d => colorMap[d.cluster])
-      .attr("fill-opacity", RADAR_FILL_OPACITY)
-      .attr("stroke", "none")
+      .attr("stroke", d => colorMap[d.cluster])
+      .attr("stroke-width", RADAR_STROKE_WIDTH)
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("d", d => radarLine(features.map(f => d[f])))
       .attr("opacity", RADAR_STROKE_OPACITY);
@@ -814,6 +811,7 @@ Promise.all([
       .attr("opacity", 0)
       .remove();
 
+    // Keep centroidPaths in sync as a live selection (enter + update, no exit)
     centroidPaths = radarSvg.selectAll(".centroid-radar");
   }
 
@@ -996,10 +994,11 @@ Promise.all([
       const gameLabel = gameFilters.find(f => f.id === gameId)?.label || gameType;
 
       // ---------------- CONFIG ----------------
-      const CURSOR_UP_COLOR   = "#3a3a3a";   // dim — mouse up / moving freely
-      const CURSOR_DOWN_COLOR = "#FFFFFF";   // bright — mouse button held
+      const CURSOR_UP_COLOR = "#555555";
+      const CURSOR_DOWN_COLOR = "#FFFFFF";
       const MAX_TRAIL = 500;
       const CHAR_DELAY = 28 * 3;   // ms per character for typewriter
+      const LINE_DELAY = CHAR_DELAY * 20;   // ms per line for typewriter
       const FADE_OUT_DURATION = 800;
       const FADE_OUT_DELAY = 7000;
 
@@ -1019,8 +1018,8 @@ Promise.all([
       const rightX = totalW / 2 + padOuter;
       const rightW = totalW / 2 - padOuter * 2;
 
-      // ---- fade in the trajectory panel label ----
-      d3.select("#trajectory-label")
+      // ---- fade in the trajectory wrapper header ----
+      d3.select("#trajectory-wrapper h3")
         .style("opacity", 0)
         .transition().duration(400).ease(d3.easeCubicOut)
         .style("opacity", 1);
@@ -1181,22 +1180,28 @@ Promise.all([
         .attr("opacity", 0)
         .text("");
 
-      // ---- typewriter engine ----
-      // Chains all lines sequentially, then calls onDone when complete
-      function typeLines(lines, nodes, charDelay, onDone) {
+      function typeLines(lines, nodes, charDelay, lineDelay, onDone) {
         let lineIdx = 0;
+
         function typeLine(li) {
           if (li >= lines.length) { if (onDone) onDone(); return; }
+
           const full = lines[li];
           let ci = 0;
+
           function typeChar() {
-            if (ci > full.length) { typeLine(li + 1); return; }
+            if (ci > full.length) {
+              setTimeout(() => typeLine(li + 1), lineDelay);
+              return;
+            }
             nodes[li].text(full.slice(0, ci));
             ci++;
             setTimeout(typeChar, charDelay);
           }
+
           typeChar();
         }
+
         typeLine(0);
       }
 
@@ -1245,7 +1250,7 @@ Promise.all([
       // ---- fade everything out ----
       function fadeSelectedUI() {
         tSvg.selectAll("*").transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
-        d3.select("#trajectory-label")
+        d3.select("#trajectory-wrapper h3")
           .transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut)
           .style("opacity", 0);
       }
@@ -1264,9 +1269,9 @@ Promise.all([
         }
 
         // kick off typewriter after first few frames
-        if (!typewriterStarted && animFrame > 20) {
+        if (!typewriterStarted && animFrame > 100) {
           typewriterStarted = true;
-          typeLines(statsLines, typeNodes, CHAR_DELAY, null);
+          typeLines(statsLines, typeNodes, CHAR_DELAY, LINE_DELAY, null);
         }
 
         const point = tickInputs[animFrame];
@@ -1297,9 +1302,9 @@ Promise.all([
           .attr("x1", d => d.x1).attr("y1", d => d.y1)
           .attr("x2", d => d.x2).attr("y2", d => d.y2)
           .attr("stroke", d => d.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
-          .attr("stroke-width", d => d.isDown ? 1.5 : 1)
-          .attr("stroke-dasharray", d => d.isDown ? "none" : "2,3")
-          .attr("opacity", d => d.isDown ? d.opacity * 0.9 : d.opacity * 0.4);
+          .attr("stroke-width", 1.5)
+          .attr("stroke-dasharray", d => d.isDown ? "none" : "3,2")
+          .attr("opacity", d => d.opacity * 0.7);
         lines.exit().remove();
 
         sampleText.text(`${animFrame + 1} / ${tickInputs.length}`).attr("opacity", 0.6);
@@ -1317,28 +1322,24 @@ Promise.all([
 
 
   // ---------------- GLOBAL CLICK RESET ----------------
-  // Reset button in header
-  document.getElementById("reset-btn").addEventListener("click", resetAll);
-
-  // Clicking empty SVG space inside scatter (not a point — those stopPropagation)
-  svg.on("click", function(event) {
-    // if the click landed on a .point-circle, the circle's handler already
-    // called stopPropagation so this never fires. If we're here it's empty space.
-    resetAll();
-  });
-
-  // Clicking anywhere outside interactive panels
   document.addEventListener("click", function (event) {
+
+    const clickedInsideScatter = event.target.closest("#scatter-plot");
     const clickedInsideLegend = event.target.closest(".pca-legend");
     const clickedInsideFilter = event.target.closest("#filter-container");
-    const clickedInsideScatter = event.target.closest("#scatter-plot");
-    const clickedInsideHeader  = event.target.closest("#main-header");
-    if (clickedInsideLegend || clickedInsideFilter || clickedInsideScatter || clickedInsideHeader) return;
+
+    // If click is inside ANY interactive component → ignore
+    if (clickedInsideScatter || clickedInsideLegend || clickedInsideFilter) {
+      return;
+    }
+
     resetAll();
   });
 
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") resetAll();
+    if (event.key === "Escape") {
+      resetAll();
+    }
   });
 
 
