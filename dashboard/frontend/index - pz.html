@@ -13,90 +13,131 @@ html, body {
   background: #000;
   color: #BFBFBF;
   height: 100%;
+  overflow: hidden;
 }
+
+/* -------------------- MAIN HEADER -------------------- */
+#main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  padding: 0 20px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1e1e1e;
+  position: relative;
+}
+
+#main-header .title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #BFBFBF;
+}
+
+#main-header .subtitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: #444;
+  text-transform: uppercase;
+}
+
+#reset-btn {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  background: none;
+  border: 1px solid #222;
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+#reset-btn:hover  { color: #BFBFBF; border-color: #555; }
+#reset-btn:active { color: #fff;    border-color: #888; }
 
 /* -------------------- DASHBOARD GRID -------------------- */
 #dashboard {
   width: 90vw;
   max-width: 1600px;
-  margin: auto;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   grid-template-rows: repeat(9, 1fr);
-  gap: 10px;
-  min-height: 600px;
+  gap: 8px;
+  height: calc(100vh - 42px);
+  padding: 8px 0;
+  box-sizing: border-box;
 }
 
-/* -------------------- WRAPPERS & HEADERS -------------------- */
-#scatter-wrapper, #radar-wrapper, #trajectory-wrapper, #filter-wrapper, #selected-point-info-wrapper {
-  display: grid;
-  grid-template-rows: 50px 1fr;
-  border-radius: 8px;
+/* -------------------- WRAPPERS -------------------- */
+#scatter-wrapper, #radar-wrapper, #trajectory-wrapper, #filter-wrapper {
+  position: relative;
+  border-radius: 6px;
   overflow: hidden;
-  background: #000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  background: #080808;
+  border: 1px solid #151515;
 }
-#scatter-wrapper h3, #radar-wrapper h3, #trajectory-wrapper h3, #filter-wrapper h3, #selected-point-info-wrapper h3 {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0;
-  font-size: 1.2rem;
-  color: #fff;
+
+/* -------------------- PANEL LABELS -------------------- */
+.panel-label {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #333;
+  pointer-events: none;
+  z-index: 2;
+  user-select: none;
 }
 
 /* -------------------- SCATTER -------------------- */
-#scatter-wrapper { grid-column: 1 / span 8; grid-row: 1 / span 8; padding: 10px; }
-#scatter-plot { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; 
-  display: block; }
+#scatter-wrapper { grid-column: 1 / span 8; grid-row: 1 / span 8; }
+#scatter-plot    { width: 100%; height: 100%; display: block; }
 #scatter-plot svg { width: 100%; height: 100%; display: block; }
 
 /* -------------------- RADAR -------------------- */
-#radar-wrapper { grid-column: 9 / span 4; grid-row: 1 / span 4; padding: 10px; }
-#radar { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-#radar svg { width: 100%; height: 100%; display: block; }
+#radar-wrapper { grid-column: 9 / span 4; grid-row: 1 / span 4; }
+#radar         { width: 100%; height: 100%; }
+#radar svg     { width: 100%; height: 100%; display: block; }
 
 /* -------------------- FILTERS -------------------- */
-#filter-wrapper { grid-column: 13 / span 4; grid-row: 1 / span 4; padding: 10px; }
-#filter-container { width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
+#filter-wrapper    { grid-column: 13 / span 4; grid-row: 1 / span 4; }
+#filter-container  { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
 
 /* -------------------- TRAJECTORY -------------------- */
-#trajectory-wrapper { grid-column: 9 / span 8; grid-row: 5 / span 4; padding: 10px; }
-#trajectory-plot { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+#trajectory-wrapper { grid-column: 9 / span 8; grid-row: 5 / span 5; }
+#trajectory-plot    { width: 100%; height: 100%; display: block; }
 #trajectory-plot svg { width: 100%; height: 100%; display: block; }
-#trajectory-caption { font-size: 0.9rem; text-align: center; margin-top: 5px; color: #fff; }
 
-/* -------------------- SELECTED POINT PANEL -------------------- */
-#selected-point-info-wrapper { grid-column: 1 / span 7; grid-row: 9 / span 1; padding: 10px; }
-#selected-point-info { width: 100%; height: 100%; }
+/* -------------------- SCATTER ROW 9 — keyboard hint -------------------- */
+#scatter-wrapper { grid-row: 1 / span 9; }
 
 /* -------------------- SHARED TOOLTIP STYLE -------------------- */
 .tooltip-style {
-  background: rgba(0,0,0,0.7);
-  color: white;
-  padding: 6px;
+  background: rgba(0,0,0,0.85);
+  color: #BFBFBF;
+  padding: 5px 7px;
   border-radius: 4px;
-  font-size: 0.85rem;
-  white-space: normal;
-  max-width: 250px;
+  font-size: 11px;
+  border: 1px solid #222;
 }
 
 /* -------------------- LEGEND & FILTER TEXT -------------------- */
 .filters-text {
   font-size: 10px;
-  fill: #BFBFBF;
+  fill: #666;
   font-weight: normal;
 }
-
-.filters-text.hovered {
-  fill: #E6E6E6;
-  font-weight: bold;
-}
-
-.filters-text.selected {
-  fill: #FFFFFF;
-  font-weight: bold;
-}
+.filters-text.hovered  { fill: #E6E6E6; font-weight: bold; }
+.filters-text.selected { fill: #FFFFFF; font-weight: bold; }
 
 .radar-legend-highlighted-line {
   font-size: 12px;
@@ -105,45 +146,45 @@ html, body {
   stroke-width: 6px;
   stroke-linejoin: round;
 }
-
-
 </style>
 </head>
 <body>
+
+<!-- ===== MAIN HEADER ===== -->
+<div id="main-header">
+  <span class="title">Behavior Analysis</span>
+  <span class="subtitle">PCA · Cluster · Trajectory</span>
+  <button id="reset-btn">↺ Reset</button>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
 <div id="dashboard">
+
   <!-- PCA Scatter -->
   <div id="scatter-wrapper">
-    <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
+    <span class="panel-label">PCA Scatter — PC1 × PC2</span>
     <div id="scatter-plot"></div>
   </div>
 
   <!-- Radar -->
   <div id="radar-wrapper">
-    <h3>Behavior Profile Radar</h3>
+    <span class="panel-label">Behavior Profile</span>
     <div id="radar"></div>
   </div>
 
   <!-- Game Type Filters -->
   <div id="filter-wrapper">
-    <h3>Game Type</h3>
+    <span class="panel-label">Game Type</span>
     <div id="filter-container"></div>
   </div>
 
   <!-- Mouse Trajectory -->
   <div id="trajectory-wrapper">
-    <h3>Mouse Trajectory</h3>
+    <span class="panel-label" id="trajectory-label">Mouse Trajectory</span>
     <div id="trajectory-plot"></div>
-    <div id="trajectory-caption"></div>
   </div>
 
-  <!-- Selected 
-  <div id="selected-point-info-wrapper">
-    <div id="selected-point-info"></div>
-  </div>
-  Point Information -->
 </div>
-
-<div id="tooltip"></div>
 
 <!-- Scripts -->
 <script src="https://d3js.org/d3.v7.min.js"></script>

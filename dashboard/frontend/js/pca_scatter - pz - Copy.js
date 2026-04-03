@@ -65,9 +65,9 @@ Promise.all([
   const RADAR_PREVIEW_OPACITY = 0.15;
 
   // Scatter selected-point highlight
-  const SCATTER_SELECTED_STROKE = "#111";
-  const SCATTER_SELECTED_STROKE_WIDTH = 2.5;
-  const SCATTER_SELECTED_R = 3;            // slightly larger when selected
+  const SCATTER_SELECTED_STROKE = "#FFFFFF";
+  const SCATTER_SELECTED_STROKE_WIDTH = 2;
+  const SCATTER_SELECTED_R = 1.5;            // slightly larger when selected
 
   // Core UI transitions (filters, hover, selection updates)
   const TRANSITION_DURATION = 350;
@@ -86,7 +86,10 @@ Promise.all([
   // Optional: easing for smoother animations (recommended)
   const EASING = d3.easeCubicOut;
 
-  // ---------------- DATA PREPROCESSING ----------------
+  // ---------------- OPACITY CACHE ----------------
+  // Tracks the committed opacity of every point after applyFilter.
+  // updatePreview reads this to ensure preview never raises a point above its current level.
+  const committedOpacity = new Map(); // hf_index → current committed opacity
   points = points.filter(d => !d.is_outlier);
   points.forEach(d => d.duration = Math.log(d.duration));
   let currentPoints = points.slice();
@@ -155,12 +158,16 @@ Promise.all([
   // X axis at origin
   svg.append("g")
     .attr("transform", `translate(0,${y0})`)
-    .call(d3.axisBottom(x).ticks(6));
+    .call(d3.axisBottom(x).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
   // Y axis at origin
   svg.append("g")
     .attr("transform", `translate(${x0},0)`)
-    .call(d3.axisLeft(y).ticks(6));
+    .call(d3.axisLeft(y).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
   // Axis labels
   svg.append("text")
@@ -169,6 +176,7 @@ Promise.all([
     .attr("text-anchor", "middle")
     .style("font-size", "14px")
     .style("font-weight", "semi bold")
+    .style("color", "#666666" )
     .text("PC1");
 
   svg.append("text")
@@ -203,15 +211,17 @@ Promise.all([
     .style("pointer-events", "none")
     .style("opacity", 0)
     .style("z-index", 9999)
-    .style("background", "rgba(0,0,0,0.7)")
-    .style("color", "white")
-    .style("padding", "6px")
+    .style("background", "rgba(10,10,10,0.92)")
+    .style("color", "#BFBFBF")
+    .style("border", "1px solid #333")
+    .style("padding", "5px 7px")
     .style("border-radius", "4px")
-    .style("font-size", "0.85rem")
+    .style("font-size", "11px")
+    .style("line-height", "1.5")
     .style("transition", "opacity 0.15s")
     .style("display", "inline-block")
-    .style("white-space", "normal")
-    .style("max-width", "250px");
+    .style("white-space", "nowrap")
+    .style("max-width", "200px");
 
 
   function buildTooltipHTML(d) {
@@ -284,7 +294,7 @@ Promise.all([
       .attr("x", 0)
       .attr("y", (_, i) => i * lineSpacing)
       .text(d => d)
-      .attr("fill", "#000")
+      .attr("fill", "#ffffff")
       .attr("dominant-baseline", "hanging");
   }
 
@@ -357,7 +367,7 @@ Promise.all([
     .attr("y", bbox.y - 1)
     .attr("width", bbox.width + 4)
     .attr("height", bbox.height + 2)
-    .attr("fill", "#ddd")
+    .attr("fill", "#2a2a2a")
     .attr("rx", 2);
 
   // Reveal final text and remove temp
@@ -369,19 +379,20 @@ Promise.all([
     radarSvg.append("circle")
       .attr("r", radarRadius * (i / ringCount))
       .attr("fill", "none")
-      .attr("stroke", "#ccc")
-      .attr("stroke-dasharray", "2,2");
+      .attr("stroke", "#2a2a2a")
+      .attr("stroke-width", 0.8)
+      .attr("stroke-dasharray", "2,3");
   }
 
   // Feature axes and labels
   features.forEach((f, i) => {
     const angle = i * angleSlice - Math.PI / 2;
-    // Axis line
     radarSvg.append("line")
       .attr("x1", 0).attr("y1", 0)
       .attr("x2", Math.cos(angle) * radarRadius)
       .attr("y2", Math.sin(angle) * radarRadius)
-      .attr("stroke", "#999");
+      .attr("stroke", "#333333")
+      .attr("stroke-width", 0.8);
     // Axis label
     radarSvg.append("text")
       .attr("x", Math.cos(angle) * (radarRadius + 12))
@@ -468,7 +479,7 @@ Promise.all([
     // update legend
     svg.selectAll(".pca-legend .legend-item text")
       .style("font-weight", "normal")
-      .style("fill", "#000");
+      .style("fill", "#ffffff");
 
     svg.select(`.pca-legend .legend-item[data-cluster='${clusterId}'] text`)
       .style("font-weight", "bold")
@@ -590,13 +601,19 @@ Promise.all([
     svg.selectAll(".legend-item").each(function (d) {
       const g = d3.select(this);
       const clusterId = d.id;
+      const isHovered  = state.hoveredCluster === clusterId;
+      const isSelected = state.selectedClusters.has(clusterId);
 
       g.select("rect")
-        .attr("stroke-width", state.selectedClusters.has(clusterId) ? 2 : 1);
+        .attr("stroke",
+          isSelected ? "#FFFFFF" :
+          isHovered  ? "#E6E6E6" : "#555555"
+        )
+        .attr("stroke-width", isSelected ? 2 : 1);
 
       g.select("text")
-        .classed("hovered", state.hoveredCluster === clusterId)
-        .classed("selected", state.selectedClusters.has(clusterId));
+        .classed("hovered",  isHovered)
+        .classed("selected", isSelected);
     });
   }
 
@@ -646,8 +663,8 @@ Promise.all([
   // --- Circle background ---
   filterItems.append("circle")
     .attr("r", circleRadius)
-    .attr("fill", "#f0f0f0")
-    .attr("stroke", "#999")
+    .attr("fill", "#999999")
+    .attr("stroke", "#CCCCCC")
     .attr("stroke-width", 2);
 
   // --- Icon ---
@@ -703,22 +720,42 @@ Promise.all([
   function updateFilterAppearance() {
     filterItems.each(function (d) {
       const g = d3.select(this);
-      const isHovered = state.hoveredGame === d.id;
+      const isHovered  = state.hoveredGame === d.id;
       const isSelected = state.selectedGames.has(d.id);
 
-      // --- Circle ---
+      // --- Circle background ---
       g.select("circle")
-        .attr("stroke", isSelected ? "#000" : "#999")
-        .attr("stroke-width", isHovered || isSelected ? 3 : 2);
+        .attr("fill",
+          isSelected ? "#444444" :
+          isHovered  ? "#333333" : "#222222"
+        )
+        .attr("stroke",
+          isSelected ? "#FFFFFF" :
+          isHovered  ? "#E6E6E6" : "#555555"
+        )
+        .attr("stroke-width", isHovered || isSelected ? 2.5 : 1.5);
 
       // --- Text ---
       g.select("text")
-        .classed("hovered", isHovered)
+        .classed("hovered",  isHovered)
         .classed("selected", isSelected);
 
-      // --- Optional: icon emphasis ---
+      // --- Icon: color all child shape elements ---
+      const iconColor =
+        isSelected ? "#FFFFFF" :
+        isHovered  ? "#E6E6E6" : "#999999";
       g.select(".icon-wrapper")
-        .style("opacity", isHovered || isSelected ? 1 : 0.7);
+        .selectAll("path, circle, rect, polygon, ellipse, line")
+        .style("fill",   function() {
+          // preserve transparent/none fills (stroke-only shapes)
+          const current = d3.select(this).style("fill");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("stroke", function() {
+          const current = d3.select(this).style("stroke");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("opacity", isHovered || isSelected ? 1 : 0.75);
     });
   }
 
@@ -827,13 +864,6 @@ Promise.all([
     const activeClusters = new Set([...state.selectedClusters]);
     const activeGameTypes = new Set([...state.selectedGames].map(id => gameIdToType[id]));
 
-    // ---------------- FILTER POINTS ----------------
-    const filteredPoints = points.filter(d => {
-      const clusterMatch = activeClusters.size === 0 || activeClusters.has(d.cluster);
-      const gameMatch = activeGameTypes.size === 0 || activeGameTypes.has(d.game_type);
-      return clusterMatch && gameMatch;
-    });
-
     // ---------------- UPDATE RADAR CHART ----------------
     const centroids = getCentroidsForSelectedGames(state.selectedGames);
     state.clusterCentroids = centroids.filter(c =>
@@ -843,50 +873,44 @@ Promise.all([
     console.log("Radar centroids:", state.clusterCentroids);
 
     // ---------------- UPDATE SCATTER POINTS ----------------
-    const circleSel = svg.selectAll(".point-circle")
-      .data(filteredPoints, d => d.id || (d.pca_x + "-" + d.pca_y));
+    // Never remove circles from DOM — only adjust opacity so preview hover always works.
+    const allCircles = svg.selectAll(".point-circle");
 
-    circleSel.join(
-      enter => {
-        const entered = enter.append("circle")
-          .attr("class", "point-circle")
-          .attr("cx", d => x(d.pca_x))
-          .attr("cy", d => y(d.pca_y))
-          .attr("r", 1.5)
-          .attr("fill", d => colorMap[d.cluster])
-          .attr("opacity", 0)
-          .style("cursor", "pointer");
-        attachCircleHover(entered);
-        entered.call(sel => sel.transition().duration(150)
-          .attr("opacity", SCATTER_SELECTED_OPACITY));
-        return entered;
-      },
+    if (state.selectedPoint !== null) {
+      allCircles.filter(d => d.hf_index === state.selectedPoint).raise();
+    }
 
-      update => update
-        .attr("cx", d => x(d.pca_x))
-        .attr("cy", d => y(d.pca_y))
-        .attr("r", 1.5)
-        .attr("fill", d => colorMap[d.cluster])
-        .attr("opacity", SCATTER_SELECTED_OPACITY)
-        .attr("stroke", "none")
-        .attr("stroke-width", 0),
-
-      exit => exit.transition().duration(150)
-        .attr("opacity", 0)
-        .remove()
-    );
+    allCircles
+      .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R : 1.5)
+      .attr("fill", d => colorMap[d.cluster])
+      .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
+      .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
+      .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
+      .attr("opacity", d => {
+        if (d.hf_index === state.selectedPoint) {
+          committedOpacity.set(d.hf_index, 1);
+          return 1;
+        }
+        const clusterMatch = activeClusters.size === 0 || activeClusters.has(d.cluster);
+        const gameMatch = activeGameTypes.size === 0 || activeGameTypes.has(d.game_type);
+        const op = (clusterMatch && gameMatch) ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY;
+        committedOpacity.set(d.hf_index, op);
+        return op;
+      });
   }
 
   console.log(precomputedCentroids.keys()); // should show all non-empty game combos
   console.log(precomputedCentroids.get(JSON.stringify(["sheep-herding", "thread-the-needle"].sort())));
 
   // ---------------- UPDATE PREVIEW (hover only — no state change) ----------------
-  // Shows what the filter WOULD look like if clicked, using dimmed opacity for non-matches.
+  // Rule: a point's opacity can only go DOWN or stay the same during a preview.
+  // Points not in the current filter stay invisible. Points that WOULD leave on click dim.
+  // Points that would stay keep their current opacity. Uses committedOpacity cache — O(1) per point.
   function updatePreview() {
     const previewCluster = state.hoveredCluster;
     const previewGame = state.hoveredGame;
 
-    // Combine currently active filters with the hovered one as a preview
+    // Effective filter if user clicked right now
     const effectiveClusters = previewCluster != null
       ? new Set([...state.selectedClusters, previewCluster])
       : state.selectedClusters;
@@ -895,21 +919,25 @@ Promise.all([
       ? new Set([...state.selectedGames, previewGame])
       : state.selectedGames;
 
-    // Scatter: dim non-matching points
-    circles
+    svg.selectAll(".point-circle")
       .transition().duration(HOVER_IN_DURATION)
       .attr("opacity", d => {
+        if (d.hf_index === state.selectedPoint) return 1;
+        const current = committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY;
         const clusterMatch = effectiveClusters.size === 0 || effectiveClusters.has(d.cluster);
         const gameMatch = effectiveGames.size === 0 || effectiveGames.has(gameTypeToId[d.game_type]);
-        return (clusterMatch && gameMatch) ? SCATTER_SELECTED_OPACITY : SCATTER_PREVIEW_OPACITY;
+        const wouldBeActive = clusterMatch && gameMatch;
+        if (wouldBeActive) {
+          // will be active after click — show at full opacity (may go up from unselected)
+          return SCATTER_SELECTED_OPACITY;
+        } else {
+          // will not be active — can only dim, never raise
+          return Math.min(current, SCATTER_PREVIEW_OPACITY);
+        }
       });
 
-    // Radar: dim non-matching centroid outlines
-    const previewGameTypes = effectiveGames.size === 0
-      ? null
-      : new Set(Array.from(effectiveGames).map(id => gameIdToType[id]));
-
-    centroidPaths
+    // Radar: dim centroid outlines that won't survive the click
+    radarSvg.selectAll(".centroid-radar")
       .transition().duration(HOVER_IN_DURATION)
       .attr("opacity", d => {
         const clusterMatch = effectiveClusters.size === 0 || effectiveClusters.has(d.cluster);
@@ -918,31 +946,26 @@ Promise.all([
   }
 
   // ---------------- UPDATE VISUALS ----------------
+  // Restores scatter and radar to the committed filter state (undoes any preview dimming).
   function updateVisuals() {
-    // ---------------- FILTER RADAR CENTROIDS ----------------
+    // Radar: recompute and animate to committed centroid set
     const centroids = getCentroidsForSelectedGames(state.selectedGames)
       .filter(c => state.selectedClusters.size === 0 || state.selectedClusters.has(c.cluster));
     updateRadarChart(centroids);
 
-    // ---------------- SCATTER POINTS ----------------
-    // Raise selected point to top before style updates
+    // Scatter: re-query DOM, raise selected, restore from cache
+    const allCircles = svg.selectAll(".point-circle");
+
     if (state.selectedPoint !== null) {
-      circles.filter(d => d.hf_index === state.selectedPoint).raise();
+      allCircles.filter(d => d.hf_index === state.selectedPoint).raise();
     }
 
-    circles
+    allCircles
       .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R : 1.5)
-      .attr("fill", d => colorMap[d.cluster])
       .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
       .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
-      .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
-      .attr("cx", d => x(d.pca_x))
-      .attr("cy", d => y(d.pca_y))
-      .attr("opacity", d => {
-        const clusterMatch = state.selectedClusters.size === 0 || state.selectedClusters.has(d.cluster);
-        const gameMatch = state.selectedGames.size === 0 || state.selectedGames.has(gameTypeToId[d.game_type]);
-        return (clusterMatch && gameMatch) ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY;
-      });
+      .transition().duration(HOVER_OUT_DURATION).ease(TRANSITION_EASING)
+      .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY);
   }
 
   // ---------------- MOUSE TRAJECTORY FUNCTION ----------------
@@ -963,171 +986,296 @@ Promise.all([
         return;
       }
 
+      // ---- look up point data ----
+      const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
+      const clusterId = pointData?.cluster ?? null;
+      const clusterColor = clusterId != null ? (colorMap[clusterId] || "#888") : "#888";
+      const clusterLabel = clusterId != null ? (clusterNames[clusterId] || `Cluster ${clusterId}`) : "Unknown";
+      const gameId = gameTypeToId[gameType] || null;
+      const gameLabel = gameFilters.find(f => f.id === gameId)?.label || gameType;
+
       // ---------------- CONFIG ----------------
-      const CURSOR_UP_COLOR = "#ddd";
-      const CURSOR_DOWN_COLOR = "black";
-      const width = trajDiv.clientWidth;
-      const height = trajDiv.clientHeight;
-      const margin = { top: 10, right: 10, bottom: 10, left: 10 };
-      const MAX_TRAIL = 600;
-      const FADE_DURATION = 600;
-      const FADE_DELAY = 2000;
-      const EASING = d3.easeCubic;
+      const CURSOR_UP_COLOR   = "#555555";
+      const CURSOR_DOWN_COLOR = "#FFFFFF";
+      const MAX_TRAIL = 500;
+      const CHAR_DELAY = 28 * 3;   // ms per character for typewriter
+      const FADE_OUT_DURATION = 800;
+      const FADE_OUT_DELAY = 7000;
+
+      // ---------------- LAYOUT ----------------
+      const totalW = trajDiv.clientWidth;
+      const totalH = trajDiv.clientHeight;
+      const padOuter = 20;
+
+      // Square plot: fit in left half with equal margins
+      const availH = totalH - padOuter * 2;
+      const availW = totalW / 2 - padOuter * 2;
+      const plotSize = Math.min(availW, availH);
+      const plotX = padOuter + (availW - plotSize) / 2;  // center in left half
+      const plotY = padOuter + (availH - plotSize) / 2;
+
+      // Right panel starts at midpoint
+      const rightX = totalW / 2 + padOuter;
+      const rightW = totalW / 2 - padOuter * 2;
+
+      // ---- fade in the trajectory wrapper header ----
+      d3.select("#trajectory-wrapper h3")
+        .style("opacity", 0)
+        .transition().duration(400).ease(d3.easeCubicOut)
+        .style("opacity", 1);
 
       // ---------------- SVG ----------------
-      const svg = d3.select(`#${targetDivId}`)
+      const tSvg = d3.select(`#${targetDivId}`)
         .append("svg")
         .attr("width", "100%")
         .attr("height", "100%")
-        .attr("viewBox", `0 0 ${width} ${height}`)
+        .attr("viewBox", `0 0 ${totalW} ${totalH}`)
         .attr("preserveAspectRatio", "xMinYMin meet");
 
-      // ---------------- LAYOUT SPLIT ----------------
-      const leftHalf = width / 2;
+      // ---- clip path for trajectory plot area ----
+      const clipId = `traj-clip-${hfIndex}`;
+      tSvg.append("defs").append("clipPath").attr("id", clipId)
+        .append("rect")
+        .attr("x", plotX).attr("y", plotY)
+        .attr("width", plotSize).attr("height", plotSize);
 
-      // ---------------- LEFT BACKGROUND ----------------
-      svg.append("rect")
-        .attr("x", margin.left)
-        .attr("y", margin.top)
-        .attr("width", leftHalf - margin.left - margin.right)
-        .attr("height", height - margin.top - margin.bottom)
-        .attr("fill", "#f9f9f9")
-        .attr("stroke", "#ccc")
-        .attr("stroke-width", 1);
+      // ---- plot background ----
+      tSvg.append("rect")
+        .attr("x", plotX).attr("y", plotY)
+        .attr("width", plotSize).attr("height", plotSize)
+        .attr("fill", "#111111")
+        .attr("stroke", "#333333")
+        .attr("stroke-width", 1)
+        .attr("rx", 4);
 
       // ---------------- SCALES ----------------
       const xScale = d3.scaleLinear()
         .domain(d3.extent(tickInputs, d => d.x))
-        .range([margin.left, leftHalf - margin.right]);
+        .range([plotX + 6, plotX + plotSize - 6]);
 
       const yScale = d3.scaleLinear()
         .domain(d3.extent(tickInputs, d => d.y))
-        .range([height - margin.bottom, margin.top]);
+        .range([plotY + plotSize - 6, plotY + 6]);
 
-      // ---------------- ICON + CLUSTER GROUP ----------------
-      const selectedIconGroup = svg.append("g")
-        .attr("class", "selected-game-icon")
-        .attr("transform", `translate(${leftHalf + margin.right}, ${margin.top})`);
-
-      // ---------------- UPDATE SELECTED GAME & CLUSTER ----------------
-      function updateSelectedGameAndCluster(selectedGameId, hfIndex) {
-        selectedIconGroup.html(""); // clear previous
-
-        if (!selectedGameId || hfIndex == null) return;
-
-        // ----- GAME ICON -----
-        const iconSvg = svgIcons[selectedGameId];
-
-        if (iconSvg) {
-          const iconGroup = selectedIconGroup.append("g").attr("class", "icon-wrapper");
-
-          // Add background circle
-          const circleRadius = (height - margin.top - margin.bottom) / 10;
-          iconGroup.append("circle")
-            .attr("r", circleRadius)
-            .attr("fill", "#f0f0f0")
-            .attr("stroke", "#999")
-            .attr("stroke-width", 1);
-
-          // Add the icon SVG
-          const gIcon = iconGroup.append("g").html(iconSvg);
-          console.log("gIcon node:", gIcon.node());
-
-          // Scale and center icon inside circle
-          const bbox = gIcon.node().getBBox();
-          console.log("bbox:", bbox);
-
-          const scale = (circleRadius * 1.35) / Math.max(bbox.width, bbox.height);
-          gIcon.attr("transform",
-            `translate(${-bbox.x * scale - bbox.width * scale / 2},${-bbox.y * scale - bbox.height / 2}) scale(${scale})`
-          );
-        }
-
-        // ----- CLUSTER COLOR -----
-        const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
-        console.log("pointData:", pointData);
-
-        const selectedClusterId = pointData?.cluster;
-        console.log("selectedClusterId:", selectedClusterId);
-
-        const clusterColor = colorMap[selectedClusterId] || "#888";
-        console.log("pointData:", pointData);
-        console.log("selectedClusterId:", selectedClusterId);
-        console.log("clusterColor:", clusterColor);
-
-        if (selectedClusterId != null) {
-          const squareSize = margin.top / 2;
-          selectedIconGroup.append("rect")
-            .attr("x", -squareSize * 2.5)
-            .attr("y", -squareSize / 2)
-            .attr("width", squareSize)
-            .attr("height", squareSize)
-            .attr("fill", clusterColor)
-            .attr("stroke", "#333")
-            .attr("stroke-width", 1)
-            .attr("opacity", 0.9);
-        }
-      }
-
-      // Call initial state
-      updateSelectedGameAndCluster(gameTypeToId[gameType], hfIndex);
+      // ---- trail group (clipped) ----
+      const trailGroup = tSvg.append("g").attr("clip-path", `url(#${clipId})`);
 
       // ---------------- CURSOR ----------------
-      const cursor = svg.append("circle")
-        .attr("r", 5)
+      const cursor = tSvg.append("circle")
+        .attr("r", 4)
         .attr("fill", CURSOR_UP_COLOR)
-        .attr("opacity", 0.8);
+        .attr("opacity", 0.85)
+        .attr("clip-path", `url(#${clipId})`);
 
-      const trailData = [];
+      // ---- sample counter (bottom of plot) ----
+      const sampleText = tSvg.append("text")
+        .attr("x", plotX + plotSize / 2)
+        .attr("y", plotY + plotSize + 14)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "hanging")
+        .attr("class", "filters-text")
+        .attr("opacity", 0);
 
-      // ---------------- LEGEND ----------------
-      const legendItems = [
-        { label: "Mouse Up", color: CURSOR_UP_COLOR },
-        { label: "Mouse Down", color: CURSOR_DOWN_COLOR }
-      ];
-
-      const legendGroup = svg.append("g")
-        .attr("transform", `translate(${margin.left}, ${height - margin.bottom})`);
-
-      let cursorX = 0;
-      const dotRadius = 5, textOffset = 4;
-      let sampleText = legendGroup.append("text").text("")
-        .attr("x", width / 2 - margin.right - margin.left)
-        .attr("y", 2 * margin.bottom / 3 + 1.5)// +1.5 to match Mouse up Mouse down below
-        .attr("text-anchor", "end")
-        .attr("dominant-baseline", "middle")
-        .attr("class", "filters-text");
-
-      legendItems.forEach(item => {
-        legendGroup.append("circle").attr("r", dotRadius).attr("fill", item.color).attr("cx", cursorX).attr("cy", 2 * margin.bottom / 3);
-        legendGroup.append("text").text(item.label)
-          .attr("x", cursorX + dotRadius + textOffset)
-          .attr("y", 2 * margin.bottom / 3 + 1.5) // slight tweak because dominant baseline is not perfectly center aligned 
-          .attr("dominant-baseline", "middle")
-          .attr("class", "filters-text");
-        cursorX += dotRadius * 2 + textOffset + item.label.length * 6 + 10;
+      // ---- legend (bottom-left of plot) ----
+      const legendY = plotY + plotSize + padOuter / 2;
+      [[CURSOR_UP_COLOR, "Mouse up"], [CURSOR_DOWN_COLOR, "Mouse down"]].forEach(([color, label], li) => {
+        tSvg.append("circle").attr("cx", plotX + li * 90).attr("cy", legendY + 1).attr("r", 4).attr("fill", color).attr("stroke", "#E6E6E6").attr("stroke-width", 0.5);
+        tSvg.append("text").attr("x", plotX + li * 90 + 8).attr("y", legendY + 1).attr("dominant-baseline", "middle").attr("class", "filters-text").text(label);
       });
 
-      // ---------------- ANIMATION ----------------
-      let i = 0;
+      // ==================== RIGHT PANEL ====================
+      const iconRadius = Math.min(rightW * 0.18, 28);
+      const iconCY = plotY + iconRadius + 4;
+      const iconCX = rightX + iconRadius + 2;
+
+      // ---- badge circle ----
+      const badgeCircle = tSvg.append("circle")
+        .attr("cx", iconCX).attr("cy", iconCY)
+        .attr("r", iconRadius)
+        .attr("fill", "#1e1e1e")
+        .attr("stroke", "#555555")
+        .attr("stroke-width", 1.5);
+
+      // ---- badge icon ----
+      let iconPathGroup = null;
+      if (gameId && svgIcons[gameId]) {
+        const gIcon = tSvg.append("g").attr("class", "traj-icon");
+        gIcon.html(svgIcons[gameId]);
+        const bbox = gIcon.node().getBBox();
+        const scale = (iconRadius * 1.3) / Math.max(bbox.width, bbox.height);
+        gIcon.attr("transform",
+          `translate(${iconCX - bbox.x * scale - (bbox.width * scale) / 2},` +
+          `${iconCY - bbox.y * scale - (bbox.height * scale) / 2}) scale(${scale})`
+        );
+        iconPathGroup = gIcon;
+      }
+
+      // ---- game name next to badge ----
+      tSvg.append("text")
+        .attr("x", iconCX + iconRadius + 8)
+        .attr("y", iconCY)
+        .attr("dominant-baseline", "middle")
+        .attr("class", "filters-text")
+        .style("font-weight", "bold")
+        .style("font-size", "11px")
+        .text(gameLabel);
+
+      // ---- index line ----
+      tSvg.append("text")
+        .attr("x", iconCX + iconRadius + 8)
+        .attr("y", iconCY + 14)
+        .attr("dominant-baseline", "middle")
+        .attr("class", "filters-text")
+        .style("font-size", "10px")
+        .text(`#${hfIndex}`);
+
+      // ---- typewriter lines ----
+      const statsLines = [
+        `Speed:       ${pointData?.speed_mean?.toFixed(2) ?? "—"}`,
+        `Efficiency:  ${pointData?.path_efficiency?.toFixed(2) ?? "—"}`,
+        `Pause rate:  ${pointData?.pause_rate?.toFixed(2) ?? "—"}`,
+        `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
+        `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
+      ];
+
+      const typeLineSpacing = 15;
+      const typeStartY = iconCY + iconRadius + 18;
+      const typeX = rightX + 4;
+
+      // pre-append empty text nodes, one per line
+      const typeNodes = statsLines.map((_, li) =>
+        tSvg.append("text")
+          .attr("x", typeX)
+          .attr("y", typeStartY + li * typeLineSpacing)
+          .attr("dominant-baseline", "hanging")
+          .attr("class", "filters-text")
+          .style("font-family", "monospace")
+          .style("font-size", "10px")
+          .text("")
+      );
+
+      // cluster reveal node (hidden until end)
+      const clusterLabelY = typeStartY + statsLines.length * typeLineSpacing + 8;
+      const clusterPrefix = "Behavior group: ";
+
+      const clusterPrefixNode = tSvg.append("text")
+        .attr("x", typeX)
+        .attr("y", clusterLabelY)
+        .attr("dominant-baseline", "hanging")
+        .attr("class", "filters-text")
+        .style("font-family", "monospace")
+        .style("font-size", "10px")
+        .attr("opacity", 0)
+        .text("");
+
+      const clusterNameNode = tSvg.append("text")
+        .attr("x", typeX)   // will be repositioned after prefix is typed
+        .attr("y", clusterLabelY)
+        .attr("dominant-baseline", "hanging")
+        .attr("class", "filters-text")
+        .style("font-family", "monospace")
+        .style("font-size", "10px")
+        .style("font-weight", "bold")
+        .style("fill", clusterColor)
+        .attr("opacity", 0)
+        .text("");
+
+      // ---- typewriter engine ----
+      // Chains all lines sequentially, then calls onDone when complete
+      function typeLines(lines, nodes, charDelay, onDone) {
+        let lineIdx = 0;
+        function typeLine(li) {
+          if (li >= lines.length) { if (onDone) onDone(); return; }
+          const full = lines[li];
+          let ci = 0;
+          function typeChar() {
+            if (ci > full.length) { typeLine(li + 1); return; }
+            nodes[li].text(full.slice(0, ci));
+            ci++;
+            setTimeout(typeChar, charDelay);
+          }
+          typeChar();
+        }
+        typeLine(0);
+      }
+
+      // ---- cluster reveal sequence ----
+      function revealCluster() {
+        clusterPrefixNode.attr("opacity", 1);
+        let ci = 0;
+        function typeChar() {
+          if (ci > clusterPrefix.length) {
+            // prefix done — now type cluster name in color
+            clusterNameNode.attr("opacity", 1);
+            // reposition name node after prefix
+            try {
+              const prefixBBox = clusterPrefixNode.node().getBBox();
+              clusterNameNode.attr("x", typeX + prefixBBox.width);
+            } catch (e) { }
+            let ni = 0;
+            function typeName() {
+              if (ni > clusterLabel.length) {
+                // name fully typed — transition icon to cluster color
+                if (iconPathGroup) {
+                  iconPathGroup.selectAll("path, circle, rect, polygon, ellipse")
+                    .transition().duration(600).ease(d3.easeCubicOut)
+                    .style("fill", clusterColor)
+                    .style("stroke", clusterColor);
+                }
+                badgeCircle.transition().duration(600).ease(d3.easeCubicOut)
+                  .attr("stroke", clusterColor)
+                  .attr("fill", clusterColor + "22"); // 13% tint
+                return;
+              }
+              clusterNameNode.text(clusterLabel.slice(0, ni));
+              ni++;
+              setTimeout(typeName, CHAR_DELAY);
+            }
+            typeName();
+            return;
+          }
+          clusterPrefixNode.text(clusterPrefix.slice(0, ci));
+          ci++;
+          setTimeout(typeChar, CHAR_DELAY);
+        }
+        typeChar();
+      }
+
+      // ---- fade everything out ----
+      function fadeSelectedUI() {
+        tSvg.selectAll("*").transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
+        d3.select("#trajectory-wrapper h3")
+          .transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut)
+          .style("opacity", 0);
+      }
+
+      // ==================== ANIMATION LOOP ====================
+      let animFrame = 0;
+      let typewriterStarted = false;
+      const trailData = [];
+
       function animateMouse() {
-        if (i >= tickInputs.length) {
-          setTimeout(() => {
-            cursor.transition().duration(FADE_DURATION).ease(EASING).attr("opacity", 0);
-            sampleText.transition().duration(FADE_DURATION).ease(EASING).attr("opacity", 0);
-            svg.selectAll(".trail-segment").transition().duration(FADE_DURATION).ease(EASING).attr("opacity", 0).remove();
-            fadeSelectedUI();
-          }, FADE_DELAY);
+        if (animFrame >= tickInputs.length) {
+          // animation complete — start cluster reveal then fade
+          revealCluster();
+          setTimeout(fadeSelectedUI, FADE_OUT_DELAY);
           return;
         }
 
-        const point = tickInputs[i];
+        // kick off typewriter after first few frames
+        if (!typewriterStarted && animFrame > 20) {
+          typewriterStarted = true;
+          typeLines(statsLines, typeNodes, CHAR_DELAY, null);
+        }
+
+        const point = tickInputs[animFrame];
         const px = xScale(point.x);
         const py = yScale(point.y);
 
-        cursor.attr("cx", px).attr("cy", py)
+        cursor
+          .attr("cx", px).attr("cy", py)
           .attr("fill", point.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
-          .attr("opacity", 0.8);
+          .attr("opacity", 0.85);
 
         trailData.push({ x: px, y: py, isDown: point.isDown });
         if (trailData.length > MAX_TRAIL) trailData.shift();
@@ -1137,26 +1285,25 @@ Promise.all([
           segments.push({
             x1: trailData[j - 1].x, y1: trailData[j - 1].y,
             x2: trailData[j].x, y2: trailData[j].y,
-            opacity: j / trailData.length, isDown: trailData[j].isDown
+            opacity: j / trailData.length,
+            isDown: trailData[j].isDown
           });
         }
 
-        const lines = svg.selectAll(".trail-segment").data(segments);
+        const lines = trailGroup.selectAll(".trail-segment").data(segments);
         lines.enter().append("line").attr("class", "trail-segment")
           .merge(lines)
-          .attr("x1", d => d.x1)
-          .attr("y1", d => d.y1)
-          .attr("x2", d => d.x2)
-          .attr("y2", d => d.y2)
+          .attr("x1", d => d.x1).attr("y1", d => d.y1)
+          .attr("x2", d => d.x2).attr("y2", d => d.y2)
           .attr("stroke", d => d.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
-          .attr("stroke-width", 2)
-          .attr("stroke-dasharray", d => d.isDown ? "0" : "4,2")
-          .attr("opacity", d => d.opacity);
+          .attr("stroke-width", 1.5)
+          .attr("stroke-dasharray", d => d.isDown ? "none" : "3,2")
+          .attr("opacity", d => d.opacity * 0.7);
         lines.exit().remove();
 
-        sampleText.text(`Sample: ${point.sampleIndex}`).attr("opacity", 1);
+        sampleText.text(`${animFrame + 1} / ${tickInputs.length}`).attr("opacity", 0.6);
 
-        i++;
+        animFrame++;
         requestAnimationFrame(animateMouse);
       }
 

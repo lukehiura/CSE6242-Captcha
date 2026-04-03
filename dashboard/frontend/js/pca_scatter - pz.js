@@ -38,7 +38,6 @@ Promise.all([
 
     // Clear trajectory
     d3.select("#trajectory-plot").html("");
-    d3.select("#trajectory-caption").html("");
 
     applyFilter();
     updateLegendAppearance();
@@ -53,8 +52,9 @@ Promise.all([
   const SCATTER_SELECTED_OPACITY = 0.5;
   const SCATTER_UNSELECTED_OPACITY = 0.04; // nearly invisible when filtered out
 
-  // Radar centroid polygon stroke
-  const RADAR_STROKE_WIDTH = 1.2;          // thinner outlines
+  // Radar centroid polygon fill
+  const RADAR_FILL_OPACITY = 0.18;        // filled polygon opacity (no stroke)
+  const RADAR_STROKE_WIDTH = 1.2;         // kept for hover path only
   const RADAR_STROKE_OPACITY = 0.7;        // overall centroid path opacity
 
   // Radar hover fill (point hover polygon)
@@ -65,7 +65,7 @@ Promise.all([
   const RADAR_PREVIEW_OPACITY = 0.15;
 
   // Scatter selected-point highlight
-  const SCATTER_SELECTED_STROKE = "#111";
+  const SCATTER_SELECTED_STROKE = "#FFFFFF";
   const SCATTER_SELECTED_STROKE_WIDTH = 2;
   const SCATTER_SELECTED_R = 1.5;            // slightly larger when selected
 
@@ -158,12 +158,16 @@ Promise.all([
   // X axis at origin
   svg.append("g")
     .attr("transform", `translate(0,${y0})`)
-    .call(d3.axisBottom(x).ticks(6));
+    .call(d3.axisBottom(x).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
   // Y axis at origin
   svg.append("g")
     .attr("transform", `translate(${x0},0)`)
-    .call(d3.axisLeft(y).ticks(6));
+    .call(d3.axisLeft(y).ticks(6))
+    .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
+    .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
   // Axis labels
   svg.append("text")
@@ -206,15 +210,17 @@ Promise.all([
     .style("pointer-events", "none")
     .style("opacity", 0)
     .style("z-index", 9999)
-    .style("background", "rgba(0,0,0,0.7)")
-    .style("color", "white")
-    .style("padding", "6px")
+    .style("background", "rgba(10,10,10,0.92)")
+    .style("color", "#BFBFBF")
+    .style("border", "1px solid #333")
+    .style("padding", "5px 7px")
     .style("border-radius", "4px")
-    .style("font-size", "0.85rem")
+    .style("font-size", "11px")
+    .style("line-height", "1.5")
     .style("transition", "opacity 0.15s")
     .style("display", "inline-block")
-    .style("white-space", "normal")
-    .style("max-width", "250px");
+    .style("white-space", "nowrap")
+    .style("max-width", "200px");
 
 
   function buildTooltipHTML(d) {
@@ -360,7 +366,7 @@ Promise.all([
     .attr("y", bbox.y - 1)
     .attr("width", bbox.width + 4)
     .attr("height", bbox.height + 2)
-    .attr("fill", "#ddd")
+    .attr("fill", "#2a2a2a")
     .attr("rx", 2);
 
   // Reveal final text and remove temp
@@ -372,19 +378,20 @@ Promise.all([
     radarSvg.append("circle")
       .attr("r", radarRadius * (i / ringCount))
       .attr("fill", "none")
-      .attr("stroke", "#ccc")
-      .attr("stroke-dasharray", "2,2");
+      .attr("stroke", "#2a2a2a")
+      .attr("stroke-width", 0.8)
+      .attr("stroke-dasharray", "2,3");
   }
 
   // Feature axes and labels
   features.forEach((f, i) => {
     const angle = i * angleSlice - Math.PI / 2;
-    // Axis line
     radarSvg.append("line")
       .attr("x1", 0).attr("y1", 0)
       .attr("x2", Math.cos(angle) * radarRadius)
       .attr("y2", Math.sin(angle) * radarRadius)
-      .attr("stroke", "#999");
+      .attr("stroke", "#333333")
+      .attr("stroke-width", 0.8);
     // Axis label
     radarSvg.append("text")
       .attr("x", Math.cos(angle) * (radarRadius + 12))
@@ -414,21 +421,22 @@ Promise.all([
     features.forEach(f => console.log(`Cluster ${c.cluster}, feature ${f}:`, c[f]));
   });
 
-  // Draw centroid paths
+  // Draw centroid paths — filled polygons, no stroke
   let centroidPaths = radarSvg.selectAll(".centroid-radar")
     .data(state.clusterCentroids, d => d.cluster)
     .join(
       enter => enter.append("path")
         .attr("class", "centroid-radar")
-        .attr("fill", "none")
-        .attr("stroke", d => colorMap[d.cluster])
-        .attr("stroke-width", RADAR_STROKE_WIDTH)
+        .attr("fill", d => colorMap[d.cluster])
+        .attr("fill-opacity", RADAR_FILL_OPACITY)
+        .attr("stroke", "none")
         .attr("opacity", RADAR_STROKE_OPACITY)
         .attr("d", d => radarLine(features.map(f => d[f]))),
       update => update
         .attr("d", d => radarLine(features.map(f => d[f])))
-        .attr("stroke", d => colorMap[d.cluster])
-        .attr("stroke-width", RADAR_STROKE_WIDTH)
+        .attr("fill", d => colorMap[d.cluster])
+        .attr("fill-opacity", RADAR_FILL_OPACITY)
+        .attr("stroke", "none")
         .attr("opacity", RADAR_STROKE_OPACITY),
       exit => exit.remove()
     );
@@ -437,9 +445,9 @@ Promise.all([
   let hoveredRadarPath = radarSvg.append("path")
     .attr("class", "point-radar")
     .attr("fill", "none")
-    .attr("stroke-width", RADAR_HOVER_STROKE_WIDTH)
+    .attr("stroke", "none")
     .attr("pointer-events", "none")
-    .style("opacity", 0); // initially hidden
+    .style("opacity", 0);
 
   // ======================== CLUSTER HIGHLIGHT FUNCTION ========================
   function highlightCluster(clusterId) {
@@ -457,14 +465,15 @@ Promise.all([
       .attr("class", "point-radar")
       .attr("d", radarLine(features.map(f => clusterData[f])))
       .attr("fill", colorMap[clusterId])
-      .attr("stroke", colorMap[clusterId])
-      .attr("opacity", 0.4);
+      .attr("fill-opacity", 0.45)
+      .attr("stroke", "none")
+      .attr("opacity", 1);
 
     // Re-append the hover preview path so it's always on top
     hoveredRadarPath = radarSvg.append("path")
       .attr("class", "point-radar")
       .attr("fill", "none")
-      .attr("stroke-width", RADAR_HOVER_STROKE_WIDTH)
+      .attr("stroke", "none")
       .attr("pointer-events", "none")
       .style("opacity", 0);
 
@@ -491,12 +500,12 @@ Promise.all([
       // Tooltip
       tooltip.html(buildTooltipHTML(d)).style("opacity", 1);
 
-      // Radar polygon hover
+      // Radar polygon hover — filled, no stroke, sits on top of centroid fills
       hoveredRadarPath.transition().duration(HOVER_IN_DURATION)
         .attr("d", radarLine(features.map(f => d[f])))
-        .attr("stroke", colorMap[d.cluster])
         .attr("fill", colorMap[d.cluster])
-        .attr("fill-opacity", RADAR_HOVER_FILL_OPACITY)
+        .attr("fill-opacity", 0.45)
+        .attr("stroke", "none")
         .style("opacity", 1);
     })
       .on("mousemove", event => {
@@ -593,19 +602,19 @@ Promise.all([
     svg.selectAll(".legend-item").each(function (d) {
       const g = d3.select(this);
       const clusterId = d.id;
+      const isHovered  = state.hoveredCluster === clusterId;
+      const isSelected = state.selectedClusters.has(clusterId);
 
       g.select("rect")
-      g.select(".icon-wrapper svg")
-        .style("stroke",
+        .attr("stroke",
           isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
+          isHovered  ? "#E6E6E6" : "#555555"
         )
-        .attr("stroke-width", state.selectedClusters.has(clusterId) ? 2 : 1);
+        .attr("stroke-width", isSelected ? 2 : 1);
 
       g.select("text")
-        .classed("hovered", state.hoveredCluster === clusterId)
-        .classed("selected", state.selectedClusters.has(clusterId));
+        .classed("hovered",  isHovered)
+        .classed("selected", isSelected);
     });
   }
 
@@ -712,37 +721,42 @@ Promise.all([
   function updateFilterAppearance() {
     filterItems.each(function (d) {
       const g = d3.select(this);
-      const isHovered = state.hoveredGame === d.id;
+      const isHovered  = state.hoveredGame === d.id;
       const isSelected = state.selectedGames.has(d.id);
 
-      // --- Circle ---
+      // --- Circle background ---
       g.select("circle")
-        .attr("stroke",
-          isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
+        .attr("fill",
+          isSelected ? "#444444" :
+          isHovered  ? "#333333" : "#222222"
         )
         .attr("stroke",
           isSelected ? "#FFFFFF" :
-            isHovered ? "#BFBFBF" :
-              "#999999"
+          isHovered  ? "#E6E6E6" : "#555555"
         )
-        .attr("stroke-width", isHovered || isSelected ? 3 : 2);
+        .attr("stroke-width", isHovered || isSelected ? 2.5 : 1.5);
 
       // --- Text ---
       g.select("text")
-        .classed("hovered", isHovered)
+        .classed("hovered",  isHovered)
         .classed("selected", isSelected);
 
-      // --- Icon ---
-      g.select(".icon-wrapper svg")
-        .style("fill",
-          isSelected ? "#FFFFFF" :
-            isHovered ? "#E6E6E6" :
-              "#CCCCCC"
-        )
-        .style("opacity", isHovered || isSelected ? 1 : 0.65);
-
+      // --- Icon: color all child shape elements ---
+      const iconColor =
+        isSelected ? "#FFFFFF" :
+        isHovered  ? "#E6E6E6" : "#999999";
+      g.select(".icon-wrapper")
+        .selectAll("path, circle, rect, polygon, ellipse, line")
+        .style("fill",   function() {
+          // preserve transparent/none fills (stroke-only shapes)
+          const current = d3.select(this).style("fill");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("stroke", function() {
+          const current = d3.select(this).style("stroke");
+          return (current === "none" || current === "transparent") ? current : iconColor;
+        })
+        .style("opacity", isHovered || isSelected ? 1 : 0.75);
     });
   }
 
@@ -779,17 +793,18 @@ Promise.all([
     joined.enter()
       .append("path")
       .attr("class", "centroid-radar")
-      .attr("fill", "none")
-      .attr("stroke", d => colorMap[d.cluster])
-      .attr("stroke-width", RADAR_STROKE_WIDTH)
+      .attr("fill", d => colorMap[d.cluster])
+      .attr("fill-opacity", RADAR_FILL_OPACITY)
+      .attr("stroke", "none")
       .attr("d", d => radarLine(features.map(f => d[f])))
       .attr("opacity", 0)
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", RADAR_STROKE_OPACITY);
 
     joined
-      .attr("stroke", d => colorMap[d.cluster])
-      .attr("stroke-width", RADAR_STROKE_WIDTH)
+      .attr("fill", d => colorMap[d.cluster])
+      .attr("fill-opacity", RADAR_FILL_OPACITY)
+      .attr("stroke", "none")
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("d", d => radarLine(features.map(f => d[f])))
       .attr("opacity", RADAR_STROKE_OPACITY);
@@ -799,7 +814,6 @@ Promise.all([
       .attr("opacity", 0)
       .remove();
 
-    // Keep centroidPaths in sync as a live selection (enter + update, no exit)
     centroidPaths = radarSvg.selectAll(".centroid-radar");
   }
 
@@ -872,7 +886,6 @@ Promise.all([
       .attr("fill", d => colorMap[d.cluster])
       .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
       .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
-      .attr("stroke-opcacity", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
       .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", d => {
         if (d.hf_index === state.selectedPoint) {
@@ -951,7 +964,7 @@ Promise.all([
     allCircles
       .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R : 1.5)
       .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
-      .attr("stroke-width", d => d.hf_index === state.selectedPoint ? 1 : SCATTER_SELECTED_OPACITY)
+      .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_WIDTH : 0)
       .transition().duration(HOVER_OUT_DURATION).ease(TRANSITION_EASING)
       .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY);
   }
@@ -983,8 +996,8 @@ Promise.all([
       const gameLabel = gameFilters.find(f => f.id === gameId)?.label || gameType;
 
       // ---------------- CONFIG ----------------
-      const CURSOR_UP_COLOR = "#bbb";
-      const CURSOR_DOWN_COLOR = "#222";
+      const CURSOR_UP_COLOR   = "#3a3a3a";   // dim — mouse up / moving freely
+      const CURSOR_DOWN_COLOR = "#FFFFFF";   // bright — mouse button held
       const MAX_TRAIL = 500;
       const CHAR_DELAY = 28 * 3;   // ms per character for typewriter
       const FADE_OUT_DURATION = 800;
@@ -1006,11 +1019,17 @@ Promise.all([
       const rightX = totalW / 2 + padOuter;
       const rightW = totalW / 2 - padOuter * 2;
 
+      // ---- fade in the trajectory panel label ----
+      d3.select("#trajectory-label")
+        .style("opacity", 0)
+        .transition().duration(400).ease(d3.easeCubicOut)
+        .style("opacity", 1);
+
       // ---------------- SVG ----------------
       const tSvg = d3.select(`#${targetDivId}`)
         .append("svg")
-        .attr("width", totalW)
-        .attr("height", totalH)
+        .attr("width", "100%")
+        .attr("height", "100%")
         .attr("viewBox", `0 0 ${totalW} ${totalH}`)
         .attr("preserveAspectRatio", "xMinYMin meet");
 
@@ -1025,8 +1044,8 @@ Promise.all([
       tSvg.append("rect")
         .attr("x", plotX).attr("y", plotY)
         .attr("width", plotSize).attr("height", plotSize)
-        .attr("fill", "#f9f9f9")
-        .attr("stroke", "#ddd")
+        .attr("fill", "#111111")
+        .attr("stroke", "#333333")
         .attr("stroke-width", 1)
         .attr("rx", 4);
 
@@ -1074,8 +1093,8 @@ Promise.all([
       const badgeCircle = tSvg.append("circle")
         .attr("cx", iconCX).attr("cy", iconCY)
         .attr("r", iconRadius)
-        .attr("fill", "#f0f0f0")
-        .attr("stroke", "#999")
+        .attr("fill", "#1e1e1e")
+        .attr("stroke", "#555555")
         .attr("stroke-width", 1.5);
 
       // ---- badge icon ----
@@ -1225,8 +1244,10 @@ Promise.all([
 
       // ---- fade everything out ----
       function fadeSelectedUI() {
-        const allTrajNodes = tSvg.selectAll("*");
-        allTrajNodes.transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
+        tSvg.selectAll("*").transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut).attr("opacity", 0);
+        d3.select("#trajectory-label")
+          .transition().duration(FADE_OUT_DURATION).ease(d3.easeCubicOut)
+          .style("opacity", 0);
       }
 
       // ==================== ANIMATION LOOP ====================
@@ -1276,9 +1297,9 @@ Promise.all([
           .attr("x1", d => d.x1).attr("y1", d => d.y1)
           .attr("x2", d => d.x2).attr("y2", d => d.y2)
           .attr("stroke", d => d.isDown ? CURSOR_DOWN_COLOR : CURSOR_UP_COLOR)
-          .attr("stroke-width", 1.5)
-          .attr("stroke-dasharray", d => d.isDown ? "none" : "3,2")
-          .attr("opacity", d => d.opacity * 0.7);
+          .attr("stroke-width", d => d.isDown ? 1.5 : 1)
+          .attr("stroke-dasharray", d => d.isDown ? "none" : "2,3")
+          .attr("opacity", d => d.isDown ? d.opacity * 0.9 : d.opacity * 0.4);
         lines.exit().remove();
 
         sampleText.text(`${animFrame + 1} / ${tickInputs.length}`).attr("opacity", 0.6);
@@ -1296,24 +1317,28 @@ Promise.all([
 
 
   // ---------------- GLOBAL CLICK RESET ----------------
-  document.addEventListener("click", function (event) {
+  // Reset button in header
+  document.getElementById("reset-btn").addEventListener("click", resetAll);
 
-    const clickedInsideScatter = event.target.closest("#scatter-plot");
+  // Clicking empty SVG space inside scatter (not a point — those stopPropagation)
+  svg.on("click", function(event) {
+    // if the click landed on a .point-circle, the circle's handler already
+    // called stopPropagation so this never fires. If we're here it's empty space.
+    resetAll();
+  });
+
+  // Clicking anywhere outside interactive panels
+  document.addEventListener("click", function (event) {
     const clickedInsideLegend = event.target.closest(".pca-legend");
     const clickedInsideFilter = event.target.closest("#filter-container");
-
-    // If click is inside ANY interactive component → ignore
-    if (clickedInsideScatter || clickedInsideLegend || clickedInsideFilter) {
-      return;
-    }
-
+    const clickedInsideScatter = event.target.closest("#scatter-plot");
+    const clickedInsideHeader  = event.target.closest("#main-header");
+    if (clickedInsideLegend || clickedInsideFilter || clickedInsideScatter || clickedInsideHeader) return;
     resetAll();
   });
 
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      resetAll();
-    }
+    if (event.key === "Escape") resetAll();
   });
 
 
