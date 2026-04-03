@@ -169,24 +169,25 @@ Promise.all([
     .call(g => g.selectAll("text").style("fill", "#666666").style("font-size", "9px"))
     .call(g => g.selectAll("line, path").style("stroke", "#444444"));
 
-  // Axis labels
-  svg.append("text")
-    .attr("x", x0)
-    .attr("y", margin.top - axisLabelOffset)
-    .attr("text-anchor", "middle")
-    .style("font-size", "14px")
-    .style("font-weight", "semi bold")
-    .text("PC1");
+// Axis labels
+svg.append("text")
+  .attr("x", x0)
+  .attr("y", margin.top - axisLabelOffset)
+  .attr("text-anchor", "middle")
+  .style("font-size", "14px")
+  .style("font-weight", "600")
+  .style("fill", "#444444")
+  .text("PC1");
 
-  svg.append("text")
-    .attr("x", margin.left + width + axisLabelOffset)
-    .attr("y", y0 + 1.5)
-    .attr("text-anchor", "start")
-    .attr("dominant-baseline", "middle")
-    .style("font-size", "14px")
-    .style("font-weight", "semi bold")
-    .text("PC2");
-
+svg.append("text")
+  .attr("x", margin.left + width + axisLabelOffset)
+  .attr("y", y0 + 1.5)
+  .attr("text-anchor", "start")
+  .attr("dominant-baseline", "middle")
+  .style("font-size", "14px")
+  .style("font-weight", "600")
+  .style("fill", "#444444")
+  .text("PC2");
   // ---------------- SCATTER POINTS ----------------
   let circles = svg.selectAll(".point-circle")
     .data(points, d => d.id)
@@ -1067,21 +1068,22 @@ Promise.all([
         .attr("opacity", 0.85)
         .attr("clip-path", `url(#${clipId})`);
 
-      // ---- sample counter (bottom of plot) ----
-      const sampleText = tSvg.append("text")
-        .attr("x", plotX + plotSize / 2)
-        .attr("y", plotY + plotSize + 14)
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "hanging")
-        .attr("class", "filters-text")
-        .attr("opacity", 0);
 
       // ---- legend (bottom-left of plot) ----
       const legendY = plotY + plotSize + padOuter / 2;
       [[CURSOR_UP_COLOR, "Mouse up"], [CURSOR_DOWN_COLOR, "Mouse down"]].forEach(([color, label], li) => {
-        tSvg.append("circle").attr("cx", plotX + li * 90).attr("cy", legendY + 1).attr("r", 4).attr("fill", color).attr("stroke", "#E6E6E6").attr("stroke-width", 0.5);
-        tSvg.append("text").attr("x", plotX + li * 90 + 8).attr("y", legendY + 1).attr("dominant-baseline", "middle").attr("class", "filters-text").text(label);
+        tSvg.append("circle").attr("cx", 4 + plotX + li * 90).attr("cy", legendY).attr("r", 4).attr("fill", color).attr("stroke", "#E6E6E6").attr("stroke-width", 0.5);
+        tSvg.append("text").attr("x", 4 + plotX + li * 90 + 8).attr("y", legendY + 1).attr("dominant-baseline", "middle").attr("class", "filters-text").text(label);
       });
+
+      // ---- sample counter (bottom right of plot) ----
+      const sampleText = tSvg.append("text")
+        .attr("x", plotX + plotSize)
+        .attr("y", legendY)
+        .attr("text-anchor", "end")
+        .attr("dominant-baseline", "middle")
+        .attr("class", "filters-text")
+        .attr("opacity", 0);
 
       // ==================== RIGHT PANEL ====================
       const iconRadius = Math.min(rightW * 0.18, 28);
