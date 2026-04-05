@@ -192,7 +192,7 @@ svg.append("text")
   .style("font-size", "14px")
   .style("font-weight", "600")
   .style("fill", "#444444")
-  .text("PC1");
+  .text("PC2");
 
 svg.append("text")
   .attr("x", margin.left + width + axisLabelOffset)
@@ -202,7 +202,7 @@ svg.append("text")
   .style("font-size", "14px")
   .style("font-weight", "600")
   .style("fill", "#444444")
-  .text("PC2");
+  .text("PC1");
   // ---------------- SCATTER POINTS ----------------
   let circles = svg.selectAll(".point-circle")
     .data(points, d => d.id)
@@ -1240,7 +1240,7 @@ svg.append("text")
         snapG.append("circle")
           .attr("r", snapRadius * (ri / 4))
           .attr("fill", "none")
-          .attr("stroke", "#252525")
+          .attr("stroke", "#2a2a2a")
           .attr("stroke-width", 0.6)
           .attr("stroke-dasharray", "2,3");
       }
@@ -1252,14 +1252,14 @@ svg.append("text")
           .attr("x1", 0).attr("y1", 0)
           .attr("x2", Math.cos(angle) * snapRadius)
           .attr("y2", Math.sin(angle) * snapRadius)
-          .attr("stroke", "#2a2a2a").attr("stroke-width", 0.6);
+          .attr("stroke", "#333333").attr("stroke-width", 0.6);
         snapG.append("text")
           .attr("x", Math.cos(angle) * (snapRadius + 10))
           .attr("y", Math.sin(angle) * (snapRadius + 10))
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "middle")
           .attr("class", "filters-text")
-          .style("font-size", "8px").style("fill", "#3a3a3a")
+          .style("font-size", "8px").style("fill", "#666")
           .text(f);
       });
 
