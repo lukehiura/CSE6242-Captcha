@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CaptchaCapture — Play & Discover Your Mouse Profile</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+
+#page-landing, #page-game, #page-results {
+  display: none;
+  min-height: 100vh;
+  padding-top: var(--nav-h);
+}
+#page-landing.active,
+#page-game.active,
+#page-results.active { display: flex; }
+
+#page-landing {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 28px;
+  padding: 80px 28px 60px;
+  background:
+    radial-gradient(ellipse at 20% 40%, #0d1f3a 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 60%, #0a1a2a 0%, transparent 55%);
+}
+.landing-eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  font-weight: 600;
+}
+.landing-title {
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.12;
+  max-width: 720px;
+}
+.landing-title span { color: #00d4ff; }
+.landing-sub {
+  font-size: 1.1rem;
+  color: #888;
+  max-width: 540px;
+  line-height: 1.7;
+}
+.game-picker {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.game-card {
+  background: #0d0d1a;
+  border: 1.5px solid #1e1e30;
+  border-radius: 16px;
+  padding: 26px 30px;
+  width: 200px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-align: center;
+}
+.game-card:hover {
+  border-color: #00d4ff;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 36px rgba(0,212,255,0.13);
+}
+.game-card.selected {
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 2px #00d4ff44, 0 8px 28px rgba(0,212,255,0.18);
+}
+.game-card-icon { margin-bottom: 12px; display: flex; justify-content: center; }
+.game-card-icon svg { width: 56px; height: 56px; overflow: visible; }
+.game-card-name { font-size: 0.95rem; font-weight: 700; color: #ddd; }
+.game-card-desc { font-size: 0.78rem; color: #555; margin-top: 6px; line-height: 1.5; }
+
+#page-game {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 72px 20px 20px;
+  gap: 14px;
+}
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 960px;
+}
+.game-title-row { font-size: 0.9rem; color: #666; }
+.game-title-row strong { color: #bbb; font-size: 1rem; }
+#game-status { font-size: 0.88rem; color: #00d4ff; font-weight: 600; }
+
+.game-canvas-wrap {
+  position: relative;
+  width: min(550px, 90vw);
+  height: min(550px, 90vw);
+  background: #000;
+  border: 1px solid #1e1e30;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+.game-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #080810;
+  font-size: 0.95rem;
+  color: #555;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.game-loading.hidden { opacity: 0; pointer-events: none; }
+
+.game-hint {
+  font-size: 0.8rem;
+  color: #444;
+  max-width: 960px;
+  text-align: center;
+}
+
+#page-results {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 88px 28px 60px;
+  gap: 36px;
+}
+.results-hero { text-align: center; max-width: 640px; }
+.results-eyebrow {
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.results-cluster-name {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.15;
+}
+.results-cluster-desc {
+  font-size: 1rem;
+  color: #aaa;
+  margin-top: 12px;
+  line-height: 1.7;
+  max-width: 540px;
+}
+.cluster-badge { margin-bottom: 14px; }
+#results-cluster-traits {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.trait-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+.trait-key {
+  color: #888;
+  font-weight: 500;
+}
+.trait-val {
+  color: #e0e0e0;
+  font-weight: 700;
+}
+.results-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 740px;
+  width: 100%;
+}
+.result-stat {
+  background: #0d0d1a;
+  border: 1px solid #1e1e30;
+  border-radius: 14px;
+  padding: 18px 22px;
+  flex: 1;
+  min-width: 120px;
+  max-width: 160px;
+  text-align: center;
+}
+.result-stat-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+  margin-bottom: 8px;
+}
+.result-stat-value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #e8e8e8;
+  line-height: 1;
+}
+.result-stat-unit {
+  font-size: 0.65rem;
+  color: #444;
+  margin-top: 4px;
+}
+.results-cta-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+</style>
+</head>
+<body>
+
+<nav class="cc-nav">
+  <span class="cc-nav-logo">Captcha<span class="accent">Capture</span></span>
+  <a href="/dashboard" class="cc-nav-link">View Full Dashboard →</a>
+</nav>
+
+<section id="page-landing" class="active">
+  <div class="landing-eyebrow">Mouse Behavior Analysis</div>
+  <h1 class="landing-title">Play a game.<br><span>Discover your mouse profile.</span></h1>
+  <p class="landing-sub">
+    Move your mouse through a short mini-game. We measure how you move —
+    speed, efficiency, hesitation — and classify your behavior against
+    30,000+ real sessions using machine learning.
+  </p>
+
+  <div class="game-picker">
+    <div class="game-card" data-game="0">
+      <div class="game-card-icon" data-icon="sheep"></div>
+      <div class="game-card-name">Sheep Herding</div>
+      <div class="game-card-desc">Herd sheep into the pen with precise mouse control</div>
+    </div>
+    <div class="game-card" data-game="1">
+      <div class="game-card-icon" data-icon="thread"></div>
+      <div class="game-card-name">Thread the Needle</div>
+      <div class="game-card-desc">Navigate through tight gaps without touching the walls</div>
+    </div>
+    <div class="game-card" data-game="2">
+      <div class="game-card-icon" data-icon="polygon"></div>
+      <div class="game-card-name">Polygon Stacking</div>
+      <div class="game-card-desc">Stack falling shapes with careful, controlled placement</div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="btn-start" disabled>
+    Choose a game to begin →
+  </button>
+
+  <div class="error-banner" id="landing-error"></div>
+</section>
+
+<section id="page-game">
+  <div class="game-header">
+    <div class="game-title-row">Playing: <strong id="game-type-label">—</strong></div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <span id="game-status">Loading…</span>
+      <button class="btn-secondary" id="btn-back-to-landing">← Change game</button>
+    </div>
+  </div>
+
+  <div class="game-canvas-wrap" id="game-canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div class="game-loading" id="game-loading-overlay">
+      <div class="spinner"></div>
+      <span>Loading game…</span>
+    </div>
+  </div>
+
+  <p class="game-hint">Move your mouse inside the game area to play. The game ends automatically when you complete the puzzle.</p>
+  <div class="error-banner" id="game-error"></div>
+</section>
+
+<section id="page-results">
+  <div class="results-hero">
+    <div class="results-eyebrow">Your Mouse Profile</div>
+    <div id="results-badge" class="cluster-badge"></div>
+    <div id="results-cluster-name" class="results-cluster-name"></div>
+    <div id="results-cluster-desc" class="results-cluster-desc"></div>
+    <div id="results-cluster-traits"></div>
+  </div>
+
+  <div class="results-stats" id="results-stats"></div>
+
+  <div class="results-cta-row">
+    <a class="btn-primary" id="btn-see-dashboard" href="/dashboard">
+      See where you fit in the full dataset →
+    </a>
+    <button class="btn-ghost" id="btn-play-again">↺ Play again</button>
+  </div>
+</section>
+
+<script src="js/svg_icons.js"></script>
+<script>
+
+const PAGES = ["landing", "game", "results"];
+function showPage(name) {
+  PAGES.forEach(p =>
+    document.getElementById(`page-${p}`).classList.toggle("active", p === name)
+  );
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = "block";
+}
+function clearError(id) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = ""; el.style.display = "none"; }
+}
+
+
+const CLUSTER_INFO = {
+  0: {
+    name: "Fast-Balanced-Fluid",
+    color: "#f77189",
+    desc: "You move fast and you cover the most ground doing it. Your speed varies in bursts rather than staying perfectly steady, suggesting confident, reactive movement rather than rigid precision. You prioritize momentum over caution, and it shows.",
+    stats: { speed: "High", efficiency: "Moderate", pauses: "Low", consistency: "Variable" },
+  },
+  1: {
+    name: "Slow-Balanced-Fluid",
+    color: "#97a431",
+    desc: "The most consistent mover of all groups. Your speed barely wavers, which is rare. You take longer and pause more often, but your paths are economical. You think before you move, and when you move, it's controlled.",
+    stats: { speed: "Low", efficiency: "Moderate", pauses: "High", consistency: "Very steady" },
+  },
+  2: {
+    name: "Moderate-Direct-Fluid",
+    color: "#36ada4",
+    desc: "You take the most direct paths of any group, with higher path efficiency than anyone else, and you finish fastest despite not being the quickest mover. You move with purpose: no wasted distance, low hesitation, and a clear sense of where you're going before your hand moves.",
+    stats: { speed: "Moderate", efficiency: "Highest", pauses: "Low", consistency: "Moderate" },
+  },
+  3: {
+    name: "Moderate-Circuitous-Hesitant",
+    color: "#a48cf4",
+    desc: "You explore. Your paths are the longest of any group, about twice the distance of typical sessions, and you take roughly three times as long to complete tasks. This is a rare profile (about 6% of all sessions): careful, investigative, and thorough. You study the environment before committing.",
+    stats: { speed: "Moderate-low", efficiency: "Lowest", pauses: "Highest", consistency: "Variable" },
+  },
+};
+
+const GAME_LABELS = ["Sheep Herding", "Thread the Needle", "Polygon Stacking"];
+const GAME_TYPES  = ["sheep-herding", "thread-the-needle", "polygon-stacking"];
+
+let selectedGameIdx = null;
+let wasmModule      = null;
+let rafId           = null;
+let gameRunning     = false;
+
+document.querySelectorAll(".game-card").forEach(card => {
+  card.addEventListener("click", () => {
+    document.querySelectorAll(".game-card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
+    selectedGameIdx = parseInt(card.dataset.game, 10);
+    const btn = document.getElementById("btn-start");
+    btn.textContent = `Start ${GAME_LABELS[selectedGameIdx]} →`;
+    btn.disabled = false;
+  });
+});
+
+document.getElementById("btn-start").addEventListener("click", () => {
+  if (selectedGameIdx === null) return;
+  clearError("landing-error");
+  startGame(selectedGameIdx);
+});
+
+document.getElementById("btn-back-to-landing").addEventListener("click", () => {
+  stopGame();
+  showPage("landing");
+});
+
+document.getElementById("btn-play-again").addEventListener("click", () => {
+  showPage("landing");
+});
+
+
+function createSeededRNG(seed) {
+  let state = seed >>> 0;
+  return {
+    next() {
+      state |= 0;
+      state = (state + 0x6D2B79F5) | 0;
+      let t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+  };
+}
+
+const GameTypeEnum = {
+  "thread-the-needle": 0,
+  "sheep-herding":     1,
+  "polygon-stacking":  2,
+};
+
+function renderPvg(G, ctx, W, H, imageData) {
+  G._game_render_pvg();
+  const pixelPtr = G._game_get_pvg_pixels();
+  const stride   = G._game_get_pvg_stride();
+  if (!pixelPtr || !stride) return;
+
+  const wasmMem = G.HEAPU8;
+  const data = imageData.data;
+  for (let y = 0; y < H; y++) {
+    const srcRow = pixelPtr + y * stride;
+    const dstRow = y * W * 4;
+    for (let x = 0; x < W; x++) {
+      const si = srcRow + x * 4, di = dstRow + x * 4;
+      const r = wasmMem[si], g = wasmMem[si+1], b = wasmMem[si+2], a = wasmMem[si+3];
+      if (a === 0) {
+        data[di] = data[di+1] = data[di+2] = data[di+3] = 0;
+      } else if (a === 255) {
+        data[di] = r; data[di+1] = g; data[di+2] = b; data[di+3] = 255;
+      } else {
+        data[di]   = Math.min(255, (r * 255 / a) | 0);
+        data[di+1] = Math.min(255, (g * 255 / a) | 0);
+        data[di+2] = Math.min(255, (b * 255 / a) | 0);
+        data[di+3] = a;
+      }
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+const CANVAS_SIZE  = 330;
+const GRID_SIZE    = 200;
+const PHYSICS_MS   = 1000 / 240;
+
+async function startGame(gameIdx) {
+  showPage("game");
+  document.getElementById("game-type-label").textContent = GAME_LABELS[gameIdx];
+  document.getElementById("game-status").textContent = "Loading…";
+  clearError("game-error");
+
+  const overlay = document.getElementById("game-loading-overlay");
+  overlay.classList.remove("hidden");
+
+  try {
+    if (!window.createGameModule) {
+      await loadScript("game.js");
+    }
+
+    if (!wasmModule) {
+      wasmModule = await window.createGameModule({ locateFile: p => p });
+    }
+
+    const G = wasmModule;
+
+    const playSeed = Math.floor(Math.random() * 3333);
+    const rng = createSeededRNG(playSeed);
+    rng.next();
+    const wasmSeed = Math.floor(rng.next() * 0xffffffff);
+
+    const gameTypeEnum = GameTypeEnum[GAME_TYPES[gameIdx]];
+    G._game_init(gameTypeEnum, wasmSeed, CANVAS_SIZE, CANVAS_SIZE);
+
+    const canvas  = document.getElementById("game-canvas");
+    canvas.width  = CANVAS_SIZE;
+    canvas.height = CANVAS_SIZE;
+    const ctx2d   = canvas.getContext("2d");
+    const imgData = new ImageData(CANVAS_SIZE, CANVAS_SIZE);
+
+    overlay.classList.add("hidden");
+    document.getElementById("game-status").textContent = "Playing…";
+    gameRunning = true;
+
+    let gx = GRID_SIZE / 2, gy = GRID_SIZE / 2, mouseDown = false;
+
+    function toGrid(e) {
+      const rect = canvas.getBoundingClientRect();
+      gx = Math.max(0, Math.min(GRID_SIZE, ((e.clientX - rect.left) / rect.width)  * GRID_SIZE));
+      gy = Math.max(0, Math.min(GRID_SIZE, ((e.clientY - rect.top)  / rect.height) * GRID_SIZE));
+    }
+
+    canvas.addEventListener("mousemove",  toGrid);
+    canvas.addEventListener("mousedown",  e => { toGrid(e); mouseDown = true;  });
+    canvas.addEventListener("mouseup",    e => { toGrid(e); mouseDown = false; });
+    canvas.addEventListener("mouseleave", ()  => { mouseDown = false; });
+    canvas.addEventListener("touchmove",  e => { e.preventDefault(); toGrid(e.touches[0]); }, { passive: false });
+    canvas.addEventListener("touchstart", e => { e.preventDefault(); mouseDown = true;  toGrid(e.touches[0]); }, { passive: false });
+    canvas.addEventListener("touchend",   e => { e.preventDefault(); mouseDown = false; }, { passive: false });
+
+    let accumulator = 0;
+    let lastTs = performance.now();
+
+    function loop(ts) {
+      if (!gameRunning) return;
+
+      accumulator += ts - lastTs;
+      lastTs = ts;
+
+      while (accumulator >= PHYSICS_MS) {
+        G._game_record_input(gx, gy);
+        G._game_apply_input(gx, gy, mouseDown ? 1 : 0);
+        G._game_step(gx, gy, mouseDown ? 1 : 0);
+        accumulator -= PHYSICS_MS;
+
+        if (G._game_is_solved() || G._game_is_failed()) {
+          gameRunning = false;
+          document.getElementById("game-status").textContent = "Analysing…";
+          finishGame(gameIdx, playSeed);
+          return;
+        }
+      }
+
+      renderPvg(G, ctx2d, CANVAS_SIZE, CANVAS_SIZE, imgData);
+      rafId = requestAnimationFrame(loop);
+    }
+
+    rafId = requestAnimationFrame(loop);
+
+  } catch (err) {
+    console.error("[game]", err);
+    overlay.classList.add("hidden");
+    showError("game-error", `Could not start game: ${err.message || err}`);
+    document.getElementById("game-status").textContent = "Error";
+  }
+}
+
+function stopGame() {
+  gameRunning = false;
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  const old = document.getElementById("game-canvas");
+  if (old) { old.replaceWith(old.cloneNode(false)); }
+  if (wasmModule) { try { wasmModule._game_cleanup(); } catch(e) {} }
+}
+
+async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src     = src;
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+function computeFeatures(session) {
+  const ticks = session.tickInputs || [];
+  const n = ticks.length;
+
+  if (n < 2) {
+    return { speed_mean: 0, path_efficiency: 0, pause_rate: 0, duration: 0 };
+  }
+
+  const tickCount  = session.physicsTickCount || n;
+  const durationMs = session.duration || (tickCount * (1000 / 240));
+
+  let totalDist = 0;
+  let pauses = 0;
+  const PAUSE_THRESH = 0.5;
+
+  for (let i = 1; i < n; i++) {
+    const dx = ticks[i].x - ticks[i-1].x;
+    const dy = ticks[i].y - ticks[i-1].y;
+    const d  = Math.sqrt(dx*dx + dy*dy);
+    totalDist += d;
+    if (d < PAUSE_THRESH) pauses++;
+  }
+
+  const dx0 = ticks[n-1].x - ticks[0].x;
+  const dy0 = ticks[n-1].y - ticks[0].y;
+  const straightLine = Math.sqrt(dx0*dx0 + dy0*dy0);
+
+  const speed_mean      = totalDist / Math.max(n - 1, 1);
+  const path_efficiency = totalDist > 0 ? Math.min(straightLine / totalDist, 1) : 0;
+  const pause_rate      = (n - 1) > 0 ? pauses / (n - 1) : 0;
+
+  return {
+    speed_mean:      parseFloat(speed_mean.toFixed(4)),
+    path_efficiency: parseFloat(path_efficiency.toFixed(4)),
+    pause_rate:      parseFloat(pause_rate.toFixed(4)),
+    duration:        parseFloat(durationMs.toFixed(2)),
+  };
+}
+
+async function finishGame(gameIdx, playSeed) {
+  const G = wasmModule;
+
+  let JsonSession = {};
+  try {
+    const ptr  = G._game_get_session_data();
+    const json = G.UTF8ToString(ptr);
+    console.log("[game] session JSON:", json);
+    if (json) JsonSession = JSON.parse(json);
+  } catch (e) {
+    console.warn("[game] Could not read session data:", e);
+  }
+
+  const computed = computeFeatures(JsonSession);
+  console.log("[game] computed features:", computed);
+
+  const sessionFeatures = {
+    speed_mean:      computed.speed_mean,
+    path_efficiency: computed.path_efficiency,
+    pause_rate:      computed.pause_rate,
+    duration:        parseFloat(Math.log(Math.max(computed.duration, 1)).toFixed(4)),
+    duration_ms:     computed.duration,
+    game_type:       GAME_TYPES[gameIdx],
+    puzzle_seed:     playSeed,
+  };
+
+  try { G._game_cleanup(); } catch(e) {}
+
+  let result;
+  try {
+    const resp = await fetch("/api/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sessionFeatures),
+    });
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    result = await resp.json();
+  } catch (err) {
+    console.error("[classify]", err);
+    showError("game-error", `Classification failed: ${err.message}`);
+    document.getElementById("game-status").textContent = "Error";
+    return;
+  }
+
+  renderResults(result, sessionFeatures);
+}
+
+
+function renderResults(result, features) {
+  const info = CLUSTER_INFO[result.cluster] || { name: `Cluster ${result.cluster}`, color: "#888", desc: "" };
+  const clr  = info.color;
+
+  document.getElementById("results-badge").textContent      = `Cluster ${result.cluster}`;
+  document.getElementById("results-badge").style.cssText    = `border-color:${clr};color:${clr}`;
+  document.getElementById("results-cluster-name").textContent = info.name;
+  document.getElementById("results-cluster-name").style.color = clr;
+  document.getElementById("results-cluster-desc").textContent  = info.desc;
+
+  const traitEl = document.getElementById("results-cluster-traits");
+  if (traitEl && info.stats) {
+    traitEl.innerHTML = Object.entries(info.stats).map(([k, v]) =>
+      `<span class="trait-pill"><span class="trait-key">${k.charAt(0).toUpperCase() + k.slice(1)}</span><span class="trait-val">${v}</span></span>`
+    ).join("");
+    traitEl.style.display = "flex";
+  } else if (traitEl) {
+    traitEl.style.display = "none";
+  }
+
+  const statDefs = [
+    { key: "speed_mean",      label: "Avg Speed",  unit: "px/tick" },
+    { key: "path_efficiency", label: "Efficiency", unit: "" },
+    { key: "pause_rate",      label: "Pause Rate", unit: "" },
+    { key: "duration_ms",     label: "Duration",   unit: "ms" },
+  ];
+
+  document.getElementById("results-stats").innerHTML = statDefs.map(s => {
+    const raw = features[s.key] ?? result.features?.[s.key];
+    const val = raw != null ? Number(raw).toFixed(2) : "—";
+    return `
+      <div class="result-stat">
+        <div class="result-stat-label">${s.label}</div>
+        <div class="result-stat-value">${val}</div>
+        ${s.unit ? `<div class="result-stat-unit">${s.unit}</div>` : ""}
+      </div>`;
+  }).join("");
+
+  const exemplar = result.exemplars?.[0];
+  let dashUrl = `/dashboard?cluster=${result.cluster}`;
+  if (exemplar) dashUrl += `&point=${exemplar.hf_index}`;
+  if (features.game_type) dashUrl += `&game=${encodeURIComponent(features.game_type)}`;
+  document.getElementById("btn-see-dashboard").href = dashUrl;
+
+  showPage("results");
+}
+
+document.querySelectorAll(".game-card-icon[data-icon]").forEach(container => {
+  const key = container.dataset.icon;
+  const map = { sheep: sheepSVG, thread: threadSVG, polygon: polygonSVG };
+  if (!map[key]) return;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.innerHTML = map[key];
+  container.appendChild(svg);
+  const bb = svg.getBBox();
+  if (bb.width && bb.height) {
+    svg.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
+  }
+});
+</script>
+</body>
+</html>

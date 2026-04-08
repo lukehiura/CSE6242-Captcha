@@ -1,97 +1,134 @@
-# Decoding Human Motion: CAPTCHA Behavioral Segmentation
+# CSE 6242 — CAPTCHA behavioral segmentation
 
-**CSE 6242 Team 165** — Cho, Hiura, Kweon, Yu, Zailaa — Spring 2026
+**Team 165** — Cho, Hiura, Kweon, Yu, Zailaa — Spring 2026
 
-Play a CAPTCHA game, see which behavioral cluster you belong to, and explore where you land among historical sessions on a PCA scatter plot.
+## Project summary
 
----
+This repository studies mouse/touch trajectories from CAPTCHA-style mini-games: a Jupyter notebook loads a Hugging Face session dataset, engineers features, normalizes and reduces dimensionality, clusters sessions, and exports JSON for a Flask-served web UI. The default landing page is a browser game (WebAssembly); a separate route opens an interactive PCA dashboard with trajectory replay loaded from the same dataset.
 
-## Project structure
+## Key features
 
-```
-CSE6242-Captcha/
-  notebook/
-    CaptchaSolve.ipynb      # Pipeline: load -> features -> EDA -> z-score -> PCA -> clustering -> export
+- **`notebook/CaptchaSolve.ipynb`** — End-to-end analysis: feature extraction (six trajectory metrics), z-scoring within game type, PCA, K-Means (with a composite rule for choosing **K** documented in the notebook), comparison with GMM/DBSCAN in diagnostics, figures under `figures/`, and export of `dashboard/data/*.json`.
+- **Flask app (`dashboard/backend/app.py`)** — Serves static files from `dashboard/frontend/`, JSON under `/api/`, raw session ticks via `/session/<hf_index>` (loads the HF dataset on first use), and **POST `/api/classify`** (nearest cluster by Euclidean distance to centroids built from non-outlier rows in `scatter_points.json`, optional `game_type` filter).
+- **Play UI (`/` → `game.html`)** — Loads `game.js` (Emscripten bundle), runs three game modes (`sheep-herding`, `thread-the-needle`, `polygon-stacking`), records input, computes four summary stats client-side, calls `/api/classify`, then links to the dashboard with query params.
+- **Dashboard (`/dashboard` → `index.html`)** — D3.js: PC1 vs PC2 scatter, game-type filter panel, radar view (cluster mean vs selected point using `FEATURES` in `js/config.js`), animated trajectory from `/session/<id>`, deep-link support via `?cluster=`, `?point=`, `?game=`.
 
-  dashboard/
-    data/                   # JSON written by the notebook (committed or regenerated locally)
-      scatter_points.json   # includes hf_index (= cohort_row 0..n-1; matches /session/<id>, not HF’s repeating `index`)
-      cluster_profiles.json # Per-cluster mean features (normalized)
-      cluster_meta.json     # Cluster ids, display names, short descriptions
-    frontend/
-      index.html            # Dashboard UI
-      game.js               # WASM glue (add when wiring the live game)
-      game.wasm             # CAPTCHA engine (add when wiring the live game)
-    backend/
-      app.py                # Flask: /api/*.json from ../data/, /session/<hf_index>, /health
+## Installation
 
-  proposal/
-    paper.tex
-    references.bib
-    build.sh                # Compile to PDF: bash proposal/build.sh
+**Requirements:** Python **≥ 3.11** (see `pyproject.toml`).
 
-  papers/                   # Reference papers (PDFs)
-  pyproject.toml            # uv / dependencies
-  README.md
-  .gitignore
-```
-
----
-
-## Quick start
-
-### Step 1 — Install uv (once)
+Using [uv](https://github.com/astral-sh/uv):
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env   # or restart your shell
-```
+source "$HOME/.local/bin/env"   # or restart your shell
 
-### Step 2 — Install dependencies
-
-```bash
+cd CSE6242-Captcha
 uv sync --extra dev
 ```
 
-This creates `.venv/` from `pyproject.toml` (notebook, ML stack, backend).
+Without uv, create a virtualenv and `pip install` the packages listed under `[project.dependencies]` in `pyproject.toml` (there is no `[build-system]` stanza, so editable `pip install -e .` is not configured).
 
-### Step 3 — Run the notebook
+**Optional dev tools:** `uv run ruff check .` (Ruff is in the `dev` extra).
+
+## Usage
+
+### 1. Refresh exported dashboard data
+
+From the repo root (notebook path is relative to `notebook/`):
 
 ```bash
 uv run python -m ipykernel install --user --name cse6242 --display-name "CSE6242 (Python 3)"
 uv run jupyter notebook notebook/CaptchaSolve.ipynb
 ```
 
-Select the **CSE6242** kernel. Run all cells through the export section. That refreshes `dashboard/data/*.json`.
+Run the notebook through the **export** section. It writes:
 
-### Step 4 — Run the dashboard
+| File | Role |
+|------|------|
+| `dashboard/data/scatter_points.json` | Per-session `hf_index`, `pca_x` / `pca_y`, `cluster`, features, `is_outlier`, etc. |
+| `dashboard/data/cluster_meta.json` | Cluster `id`, `name`, `size`, `color` for the dashboard legend |
+| `dashboard/data/cluster_profiles.json` | Per-cluster feature means plus `_norm` columns (notebook export) |
 
-The UI reads **`dashboard/data/*.json` through Flask** (no duplicate copies under `frontend/data/`).
+The Flask route **`/api/cluster_profiles.json`** serves this file, but the current dashboard entry script **`js/dashboard.js` only fetches `scatter_points.json` and `cluster_meta.json`** — not `cluster_profiles.json`.
 
-Open two terminals:
+### 2. Run the web server
 
 ```bash
-# Terminal 1 — API + JSON (port 5001). Must be up first.
 uv run python dashboard/backend/app.py
-
-# Terminal 2 — static HTML/JS only
-cd dashboard/frontend
-python3 -m http.server 8000
 ```
 
-Open [http://localhost:8000](http://localhost:8000). Data: `http://127.0.0.1:5001/api/scatter_points.json`, etc. Health: [http://127.0.0.1:5001/health](http://127.0.0.1:5001/health). Set `HF_TOKEN` if needed for `/session/...`.
+Default listen address: `http://0.0.0.0:5001/`.
 
----
+**Port already in use** (`Address already in use` / `Port 5001 is in use`):
 
+- See which process holds the port (no `sudo` needed for your own user): `lsof -i :5001`
+- Stop it: `kill <PID>` (e.g. the `python3.x` PID shown by `lsof`)
+- Or use another port without killing anything: `PORT=5002 uv run python dashboard/backend/app.py` (then open `http://127.0.0.1:5002/`)
 
-The notebook builds clusters from session trajectories
+**`.env` tip:** If you see *“There are .env files present. Install python-dotenv to use them”*, Flask is not loading `.env` automatically. Either export variables in your shell, add `python-dotenv` and load it in `app.py`, or ignore the message if you do not rely on `.env`.
 
-1. **Features (6):** `duration`, `path_length`, `speed_mean`, `path_efficiency`, `pause_rate`, `speed_std` — with deduping and outlier filtering during extraction.
-2. **Normalization:** Z-score each feature **within game type** (`thread-the-needle`, `polygon-stacking`, `sheep-herding`) so tasks are comparable.
-3. **Dimensionality reduction:** PCA retaining enough components to explain ~90% of variance (used for clustering; PC1/PC2 are used for the 2D scatter in exports).
-4. **Clustering:** **K-Means** with **k = 3** on the PCA space. The notebook also compares **GMM** and **DBSCAN** for the write-up; K-Means is the primary model for interpretability.
-5. **Labels:** Cluster display names from relative quantiles over speed, efficiency, and pause behavior.
-6. **Export:** Three JSON files under `dashboard/data/` for the dashboard (scatter, profiles, metadata).
+| Route | Behavior |
+|-------|----------|
+| `/` | `game.html` (play + classify) |
+| `/dashboard` | `index.html` (PCA dashboard) |
+| `/health` | `{"status":"ok"}` |
+| `/api/scatter_points.json` | Static JSON from data dir |
+| `/api/cluster_meta.json` | Static JSON from data dir |
+| `/api/cluster_profiles.json` | Static JSON from data dir |
+| `POST /api/classify` | JSON body → cluster id + exemplar HF indices |
+| `/session/<int:hf_index>` | Session metadata + `ticks` from HF dataset |
 
-**Live classification** (browser -> backend -> same feature + model path) is planned; the Flask app currently exposes `/health` only until `game.js` / `game.wasm` and the classify route are wired up.
+**Dashboard deep link** (after playing, the results page builds this automatically):
 
+```text
+http://127.0.0.1:5001/dashboard?cluster=0&point=12345&game=sheep-herding
+```
+
+**Classify API example:**
+
+```bash
+curl -s -X POST http://127.0.0.1:5001/api/classify \
+  -H "Content-Type: application/json" \
+  -d '{"speed_mean":1.2,"path_efficiency":0.5,"pause_rate":0.1,"duration":8.0,"game_type":"sheep-herding"}'
+```
+
+## Configuration / environment variables
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `PORT` or `DASHBOARD_PORT` | `5001` | `app.py` `__main__` |
+| `FLASK_DEBUG` | off | Truthy if set to `1`, `true`, `yes`, or `on` (case-insensitive) |
+| `DASHBOARD_DATA_DIR` | `dashboard/data` (resolved from `dashboard/backend/`) | JSON file paths + classify cache |
+| `HF_DATASET_REPO` | `Capycap-AI/CaptchaSolve30k` | `/session/<id>` dataset load |
+| `HF_DATASET_SPLITS` | `train,validation,test` | Split names passed to `load_dataset` |
+| `HF_TOKEN` | unset | Hugging Face token for private or gated datasets |
+| `SECRET_KEY` | dev default string | Flask `SECRET_KEY` |
+
+**Frontend API base:** `js/config.js` uses `window.DASHBOARD_API_BASE` when set; `js/dashboard_api_base.js` is currently empty, so the UI expects the **same origin** as the Flask server.
+
+## Folder structure
+
+```text
+CSE6242-Captcha/
+├── pyproject.toml          # dependencies + Ruff config
+├── uv.lock
+├── main.py                 # placeholder CLI (“Hello from cse6242-captcha!”)
+├── notebook/
+│   └── CaptchaSolve.ipynb  # analysis, figures, JSON export
+├── figures/                # plots written by the notebook (path configured in notebook)
+└── dashboard/
+    ├── data/               # exported JSON (may be gitignored or committed)
+    ├── backend/
+    │   └── app.py          # Flask application
+    └── frontend/
+        ├── index.html      # dashboard (served at /dashboard)
+        ├── game.html       # game + classify (served at /)
+        ├── game.js         # Emscripten runtime + WASM glue
+        ├── css/
+        └── js/             # D3 dashboard modules, shared config/state
+```
+
+## Contributing
+
+Changes that alter export schemas (`scatter_points.json`, `cluster_meta.json`, `cluster_profiles.json`) should stay consistent with `dashboard/backend/app.py` and the frontend parsers in `dashboard/frontend/js/`. Re-run the notebook export and smoke-test `/`, `/dashboard`, `/api/classify`, and `/session/0` after substantive changes.
