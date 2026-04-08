@@ -161,6 +161,7 @@ function resetAll() {
     cancelAnimationFrame(_trajRafId); _trajRafId = null;
   }
 
+  if (typeof _removeSelectionMarker === "function") _removeSelectionMarker();
   d3.select("#selected-point-info").html("").style("display", "none").classed("tooltip-style", false);
   d3.select("#trajectory-plot").html("");
   d3.select("#trajectory-caption").html("");

@@ -38,14 +38,19 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const MAX_TRAIL   = 500;
     const CHAR_DELAY  = 84;
 
-    const totalW = trajDiv.clientWidth  || 600;
-    const totalH = trajDiv.clientHeight || 300;
-    const pad    = 20;
-    const plotSz = Math.min(totalW / 2 - pad * 2, totalH - pad * 2);
-    const plotX  = pad + (totalW / 2 - pad * 2 - plotSz) / 2;
-    const plotY  = pad + (totalH - pad * 2 - plotSz) / 2;
-    const rightX = totalW / 2 + pad;
-    const rightW = totalW / 2 - pad * 2;
+    const totalW   = trajDiv.clientWidth  || 600;
+    const totalH   = trajDiv.clientHeight || 300;
+    const pad      = 16;
+    const legH     = 20;
+    const ctrlH    = 34;
+    const bottomH  = legH + 6 + ctrlH + 6;
+    const availH   = totalH - pad - bottomH;
+    const halfW    = totalW / 2;
+    const plotSz   = Math.min(halfW - pad * 2, availH);
+    const plotX    = pad + (halfW - pad * 2 - plotSz) / 2;
+    const plotY    = pad + (availH - plotSz) / 2;
+    const rightX   = halfW + pad;
+    const rightW   = halfW - pad * 2;
 
     const canvas = d3.select(`#${targetDivId}`)
       .append("canvas")
@@ -78,9 +83,75 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "hanging")
       .attr("class", "filters-text")
-      .attr("opacity", 0);
+      .style("display", "none");
 
-    const legY = plotY + plotSz + pad / 2;
+    const PHYSICS_HZ = 240;
+    const msPerTick  = 1000 / PHYSICS_HZ;
+
+    const legY    = plotY + plotSz + 6;
+    const ctrlY   = legY + legH + 6;
+
+    const ctrlDiv = document.createElement("div");
+    ctrlDiv.style.cssText = [
+      "position:absolute",
+      `left:${plotX}px`,
+      `top:${ctrlY}px`,
+      `width:${plotSz}px`,
+      `height:${ctrlH}px`,
+      "display:flex",
+      "align-items:center",
+      "gap:8px",
+      "pointer-events:all",
+    ].join(";");
+
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "⏸";
+    playBtn.style.cssText = [
+      "background:#1e1e2e",
+      "border:1px solid #444",
+      "color:#e0e0e0",
+      "border-radius:4px",
+      "width:26px",
+      "height:26px",
+      "cursor:pointer",
+      "font-size:12px",
+      "flex-shrink:0",
+      "display:flex",
+      "align-items:center",
+      "justify-content:center",
+      "padding:0",
+    ].join(";");
+
+    const scrubber = document.createElement("input");
+    scrubber.type  = "range";
+    scrubber.min   = "0";
+    scrubber.max   = String(ticks.length - 1);
+    scrubber.value = "0";
+    scrubber.style.cssText = [
+      "flex:1",
+      "height:4px",
+      "cursor:pointer",
+      "accent-color:#00c8ff",
+      "min-width:0",
+    ].join(";");
+
+    const timeLabel = document.createElement("span");
+    timeLabel.style.cssText = [
+      "color:#aaa",
+      "font-size:10px",
+      "font-family:monospace",
+      "white-space:nowrap",
+      "flex-shrink:0",
+      "min-width:52px",
+      "text-align:right",
+    ].join(";");
+    timeLabel.textContent = "0 ms";
+
+    ctrlDiv.appendChild(playBtn);
+    ctrlDiv.appendChild(scrubber);
+    ctrlDiv.appendChild(timeLabel);
+    trajDiv.appendChild(ctrlDiv);
+
     [[CURSOR_UP, "Mouse up", false], [CURSOR_DOWN, "Mouse down", true]].forEach(([col, lbl, isDown], li) => {
       tSvg.append("line")
         .attr("x1", plotX + li * 110).attr("y1", legY + 1)
@@ -222,10 +293,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
       function startAnim() {
         if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
-        frame = 0;
-        trail.length = 0;
-        twStarted = false;
-        sampleText.attr("opacity", 0);
+        frame = 0; trail.length = 0; twStarted = false; revealDone = false;
+        paused = false;
+        playBtn.textContent = "⏸";
         cursor.attr("opacity", 0);
         typeNodes.forEach(n => n.text(""));
         prefixNode.attr("opacity", 0).text("");
@@ -234,6 +304,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
           .style("fill", null).style("stroke", null);
         ctx.clearRect(0, 0, totalW, totalH);
+        drawBackground();
+        syncControls();
         animateMouse();
       }
 
@@ -282,14 +354,50 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       ctx.setLineDash([]);
     }
 
-    let frame = 0, twStarted = false;
+    let frame = 0, twStarted = false, paused = false, revealDone = false;
     const trail = [];
+
+    function msAt(f) {
+      const idx = ticks[f]?.sampleIndex ?? f;
+      return Math.round(idx * msPerTick);
+    }
+
+    function totalMs() {
+      return msAt(ticks.length - 1);
+    }
+
+    function syncControls() {
+      scrubber.value  = String(frame);
+      const cur       = msAt(Math.min(frame, ticks.length - 1));
+      const tot       = totalMs();
+      timeLabel.textContent = `${cur} / ${tot} ms`;
+    }
+
+    function drawFrameAt(f) {
+      trail.length = 0;
+      const start  = Math.max(0, f - MAX_TRAIL + 1);
+      for (let i = start; i <= f; i++) {
+        const pt = ticks[i];
+        trail.push({ x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown });
+      }
+      drawTrail();
+      if (f < ticks.length) {
+        const pt = ticks[f];
+        const px = xSc(pt.x), py = ySc(pt.y);
+        cursor.attr("cx", px).attr("cy", py)
+          .attr("fill", pt.isDown ? CURSOR_DOWN : CURSOR_UP)
+          .attr("opacity", 0.9);
+      }
+    }
 
     drawBackground();
 
     function animateMouse() {
+      if (paused) return;
+
       if (frame >= ticks.length) {
-        revealCluster();
+        if (!revealDone) { revealDone = true; revealCluster(); }
+        playBtn.textContent = "↺";
         return;
       }
 
@@ -309,11 +417,42 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       if (trail.length > MAX_TRAIL) trail.shift();
 
       drawTrail();
-
-      sampleText.text(`${frame + 1} / ${ticks.length}`).attr("opacity", 0.55);
+      syncControls();
       frame++;
       _trajRafId = requestAnimationFrame(animateMouse);
     }
+
+    playBtn.addEventListener("click", () => {
+      if (frame >= ticks.length) {
+        frame = 0; trail.length = 0; twStarted = false; revealDone = false;
+        typeNodes.forEach(n => n.text(""));
+        prefixNode.attr("opacity", 0).text("");
+        nameNode.attr("opacity", 0).text("");
+        badge.attr("stroke", "#555").attr("fill", "#1a1a1a");
+        if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
+          .style("fill", null).style("stroke", null);
+        cursor.attr("opacity", 0);
+        ctx.clearRect(0, 0, totalW, totalH);
+        drawBackground();
+        paused = false;
+        playBtn.textContent = "⏸";
+        animateMouse();
+        return;
+      }
+      paused = !paused;
+      playBtn.textContent = paused ? "▶" : "⏸";
+      if (!paused) animateMouse();
+    });
+
+    scrubber.addEventListener("input", () => {
+      const f = parseInt(scrubber.value, 10);
+      frame  = f;
+      paused = true;
+      playBtn.textContent = "▶";
+      ctx.clearRect(0, 0, totalW, totalH);
+      drawFrameAt(f);
+      syncControls();
+    });
 
     animateMouse();
 

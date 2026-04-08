@@ -1,5 +1,7 @@
 let svg, circles, colorMap, featureScales, tooltip;
 let _dpr = 1;
+let _xScale, _yScale;
+let _selectionMarker = null;
 
 function _debounce(fn, ms) {
   let t;
@@ -33,6 +35,8 @@ function initScatter(points, clusters) {
 
   const x = d3.scaleLinear().domain([lo, hi]).range([margin.left, margin.left + inner]);
   const y = d3.scaleLinear().domain([lo, hi]).range([margin.top + inner, margin.top]);
+  _xScale = x;
+  _yScale = y;
 
   svg = d3.select("#scatter-plot")
     .append("svg")
@@ -200,11 +204,13 @@ function attachCircleHover(points) {
       const id = d.hf_index;
       if (state.selectedPoint === id) {
         state.selectedPoint = null;
+        _removeSelectionMarker();
         d3.select("#selected-point-info").html("").style("display", "none");
         d3.select("#trajectory-plot").html("");
         d3.select("#trajectory-caption").html("");
       } else {
         state.selectedPoint = id;
+        _placeSelectionMarker(d);
         d3.select("#selected-point-info")
           .html(buildStatsCardHTML(d))
           .classed("tooltip-style", false)
@@ -221,6 +227,59 @@ function attachCircleHover(points) {
       }
       updateVisuals();
     });
+}
+
+function _placeSelectionMarker(d) {
+  if (_selectionMarker) _selectionMarker.remove();
+  const cx = _xScale(d.pca_x);
+  const cy = _yScale(d.pca_y);
+  const clr = colorMap[d.cluster] || "#fff";
+  const baseR = SCATTER_SELECTED_R * _dpr;
+
+  _selectionMarker = svg.append("g").attr("class", "selection-marker");
+
+  const pulseCircle = _selectionMarker.append("circle")
+    .attr("cx", cx).attr("cy", cy)
+    .attr("r", baseR)
+    .attr("fill", "none")
+    .attr("stroke", clr)
+    .attr("stroke-width", 1.5 * _dpr)
+    .attr("opacity", 0.9)
+    .attr("pointer-events", "none")
+    .node();
+
+  const animR = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+  animR.setAttribute("attributeName", "r");
+  animR.setAttribute("from", baseR);
+  animR.setAttribute("to", baseR * 4);
+  animR.setAttribute("dur", "1.4s");
+  animR.setAttribute("repeatCount", "indefinite");
+  animR.setAttribute("calcMode", "spline");
+  animR.setAttribute("keySplines", "0.2 0 0.8 1");
+  pulseCircle.appendChild(animR);
+
+  const animOp = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+  animOp.setAttribute("attributeName", "opacity");
+  animOp.setAttribute("from", "0.8");
+  animOp.setAttribute("to", "0");
+  animOp.setAttribute("dur", "1.4s");
+  animOp.setAttribute("repeatCount", "indefinite");
+  animOp.setAttribute("calcMode", "spline");
+  animOp.setAttribute("keySplines", "0.2 0 0.8 1");
+  pulseCircle.appendChild(animOp);
+
+  _selectionMarker.append("circle")
+    .attr("cx", cx).attr("cy", cy)
+    .attr("r", baseR)
+    .attr("fill", clr)
+    .attr("opacity", 0.25)
+    .attr("pointer-events", "none");
+
+  svg.selectAll(".point-circle").filter(p => p.hf_index === d.hf_index).raise();
+}
+
+function _removeSelectionMarker() {
+  if (_selectionMarker) { _selectionMarker.remove(); _selectionMarker = null; }
 }
 
 function updateLegendAppearance() {

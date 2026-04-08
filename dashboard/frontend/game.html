@@ -163,11 +163,36 @@
 }
 .results-cluster-desc {
   font-size: 1rem;
-  color: #666;
+  color: #aaa;
   margin-top: 12px;
   line-height: 1.7;
+  max-width: 540px;
 }
 .cluster-badge { margin-bottom: 14px; }
+#results-cluster-traits {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.trait-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+.trait-key {
+  color: #888;
+  font-weight: 500;
+}
+.trait-val {
+  color: #e0e0e0;
+  font-weight: 700;
+}
 .results-stats {
   display: flex;
   gap: 14px;
@@ -280,6 +305,7 @@
     <div id="results-badge" class="cluster-badge"></div>
     <div id="results-cluster-name" class="results-cluster-name"></div>
     <div id="results-cluster-desc" class="results-cluster-desc"></div>
+    <div id="results-cluster-traits"></div>
   </div>
 
   <div class="results-stats" id="results-stats"></div>
@@ -318,22 +344,26 @@ const CLUSTER_INFO = {
   0: {
     name: "Fast-Balanced-Fluid",
     color: "#f77189",
-    desc: "You move quickly and smoothly, covering ground efficiently with minimal hesitation. Your mouse behavior mirrors experienced, confident users who know exactly where they're going.",
+    desc: "You move fast and you cover the most ground doing it. Your speed varies in bursts rather than staying perfectly steady, suggesting confident, reactive movement rather than rigid precision. You prioritize momentum over caution, and it shows.",
+    stats: { speed: "High", efficiency: "Moderate", pauses: "Low", consistency: "Variable" },
   },
   1: {
     name: "Slow-Balanced-Fluid",
     color: "#97a431",
-    desc: "Deliberate and precise — you take your time, but your movements are fluid and controlled. You're methodical rather than rushed, with excellent path economy.",
+    desc: "The most consistent mover of all groups. Your speed barely wavers, which is rare. You take longer and pause more often, but your paths are economical. You think before you move, and when you move, it's controlled.",
+    stats: { speed: "Low", efficiency: "Moderate", pauses: "High", consistency: "Very steady" },
   },
   2: {
     name: "Moderate-Direct-Fluid",
     color: "#36ada4",
-    desc: "You strike a balance between speed and care, taking fairly direct paths. Your mouse tells a story of practiced, moderate confidence in navigating unfamiliar environments.",
+    desc: "You take the most direct paths of any group, with higher path efficiency than anyone else, and you finish fastest despite not being the quickest mover. You move with purpose: no wasted distance, low hesitation, and a clear sense of where you're going before your hand moves.",
+    stats: { speed: "Moderate", efficiency: "Highest", pauses: "Low", consistency: "Moderate" },
   },
   3: {
     name: "Moderate-Circuitous-Hesitant",
     color: "#a48cf4",
-    desc: "You explore before committing — your paths have more curves and pauses, reflecting a thoughtful, investigative approach. You're the kind of person who reads the map before moving.",
+    desc: "You explore. Your paths are the longest of any group, about twice the distance of typical sessions, and you take roughly three times as long to complete tasks. This is a rare profile (about 6% of all sessions): careful, investigative, and thorough. You study the environment before committing.",
+    stats: { speed: "Moderate-low", efficiency: "Lowest", pauses: "Highest", consistency: "Variable" },
   },
 };
 
@@ -629,6 +659,16 @@ function renderResults(result, features) {
   document.getElementById("results-cluster-name").textContent = info.name;
   document.getElementById("results-cluster-name").style.color = clr;
   document.getElementById("results-cluster-desc").textContent  = info.desc;
+
+  const traitEl = document.getElementById("results-cluster-traits");
+  if (traitEl && info.stats) {
+    traitEl.innerHTML = Object.entries(info.stats).map(([k, v]) =>
+      `<span class="trait-pill"><span class="trait-key">${k.charAt(0).toUpperCase() + k.slice(1)}</span><span class="trait-val">${v}</span></span>`
+    ).join("");
+    traitEl.style.display = "flex";
+  } else if (traitEl) {
+    traitEl.style.display = "none";
+  }
 
   const statDefs = [
     { key: "speed_mean",      label: "Avg Speed",  unit: "px/tick" },
