@@ -124,6 +124,7 @@ function _buildFilterSvg(filterDiv, points) {
           .attr("transform", `${baseT} scale(1)`);
       }
     });
+    updateFilterAppearance();
 }
 
 function updateFilterAppearance() {

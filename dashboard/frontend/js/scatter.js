@@ -56,9 +56,9 @@ function initScatter(points, clusters) {
   svg.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).ticks(6));
 
   svg.append("text").attr("x", x0).attr("y", margin.top - 14 * dpr)
-    .attr("text-anchor", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC2");
+    .attr("text-anchor", "middle").attr("class", "axis-label").text("PC2");
   svg.append("text").attr("x", margin.left + inner + 14 * dpr).attr("y", y0 + 1.5)
-    .attr("text-anchor", "start").attr("dominant-baseline", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC1");
+    .attr("text-anchor", "start").attr("dominant-baseline", "middle").attr("class", "axis-label").text("PC1");
 
   circles = svg.selectAll(".point-circle")
     .data(points, d => d.hf_index)
@@ -93,8 +93,7 @@ function initScatter(points, clusters) {
     .text(d => CLUSTER_NAMES[d.id])
     .attr("x", sq + gap).attr("y", sq / 2)
     .attr("dominant-baseline", "middle")
-    .attr("class", "filters-text")
-    .style("font-size", `${13 * dpr}px`);
+    .attr("class", "filters-text");
 
   const _legendPreview = _debounce(updatePreview, 40);
 

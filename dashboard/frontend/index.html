@@ -92,19 +92,26 @@ html, body {
 
 .filters-text {
   font-size: 12px;
-  fill: #BFBFBF;
-  font-weight: normal;
+  fill: #A8A8A8;
+  font-weight: 400;
   font-family: "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.2px;
+  transition: fill 120ms ease, opacity 120ms ease;
 }
 
 .filters-text.hovered {
-  fill: #E6E6E6;
-  font-weight: bold;
+  fill: #DCDCDC;
 }
 
 .filters-text.selected {
   fill: #FFFFFF;
-  font-weight: bold;
+  font-weight: 600;
+}
+
+.axis-label {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  fill: #bbb;
+  font-size: 16px;
 }
 
 .radar-legend-highlighted-line {
