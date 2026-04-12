@@ -40,3 +40,5 @@ const TRANSITION_MS  = 350;
 const HOVER_IN_MS    = 80;
 const HOVER_OUT_MS   = 220;
 const TRANSITION_EASE = d3.easeCubicOut;
+
+const MAX_HOVER_DIST = 25 * 25; // squared distance

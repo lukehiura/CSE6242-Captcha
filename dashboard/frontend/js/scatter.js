@@ -50,9 +50,9 @@ function initScatter(points, clusters) {
   svg.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).ticks(6));
 
   svg.append("text").attr("x", x0).attr("y", margin.top - 14 * dpr)
-    .attr("text-anchor", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC1");
+    .attr("text-anchor", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC2");
   svg.append("text").attr("x", margin.left + inner + 14 * dpr).attr("y", y0 + 1.5)
-    .attr("text-anchor", "start").attr("dominant-baseline", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC2");
+    .attr("text-anchor", "start").attr("dominant-baseline", "middle").style("font-size", `${15 * dpr}px`).style("fill", "#bbb").text("PC1");
 
   circles = svg.selectAll(".point-circle")
     .data(points, d => d.hf_index)
@@ -129,6 +129,45 @@ function initScatter(points, clusters) {
 
   attachCircleHover(points);
 
+  svg.on("mousemove", function (event) {
+    const [mx, my] = d3.pointer(event, svg.node());
+
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const p of points) {
+      if (committedOpacity.get(p.hf_index) < 0.1) continue;
+
+      const dx = _xScale(p.pca_x) - mx;
+      const dy = _yScale(p.pca_y) - my;
+      const d = dx * dx + dy * dy;
+
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+
+    if (!best || bestDist > MAX_HOVER_DIST) {
+      state.hoveredPoint = null;
+      tooltip.style("opacity", 0);
+      hideHoverRadar();
+      return;
+    }
+
+    if (state.hoveredPoint?.hf_index === best.hf_index) return;
+
+    state.hoveredPoint = best;
+
+    tooltip
+      .html(buildTooltipHTML(best))
+      .style("opacity", 1)
+      .style("left", (event.pageX + 10) + "px")
+      .style("top", (event.pageY - 20) + "px");
+
+    showHoverRadar(best);
+  });
+
   document.addEventListener("click", e => {
     const interactive = "#scatter-plot, #filter-container, #radar, #trajectory-wrapper, #selected-point-info-wrapper, .pca-legend, .replay-btn";
     if (e.target.closest(interactive)) return;
@@ -155,11 +194,11 @@ function buildStatsCardHTML(d) {
   const clr = colorMap[d.cluster] || "#888";
   const gameLabel = GAME_FILTERS.find(f => f.game_type === d.game_type)?.label || d.game_type;
   const stats = [
-    { label: "Speed",      value: d.speed_mean.toFixed(2),      unit: "px/tick" },
+    { label: "Speed", value: d.speed_mean.toFixed(2), unit: "px/tick" },
     { label: "Efficiency", value: d.path_efficiency.toFixed(2), unit: "" },
-    { label: "Pause rate", value: d.pause_rate.toFixed(2),      unit: "" },
-    { label: "Duration",   value: d.duration.toFixed(2),        unit: "log-ms" },
-    { label: "Anomaly",    value: d.anomaly_score.toFixed(2),   unit: "" },
+    { label: "Pause rate", value: d.pause_rate.toFixed(2), unit: "" },
+    { label: "Duration", value: d.duration.toFixed(2), unit: "log-ms" },
+    { label: "Anomaly", value: d.anomaly_score.toFixed(2), unit: "" },
   ];
   return `
     <div class="stats-card">
@@ -180,61 +219,38 @@ function buildStatsCardHTML(d) {
 }
 
 function attachCircleHover(points) {
-  let ttTimer;
+  circles.on("click", function (event, d) {
+    if (+d3.select(this).style("opacity") < 0.1) return;
 
-  circles
-    .on("mouseover", function (event, d) {
-      if (+d3.select(this).style("opacity") < 0.1) return;   // stricter threshold for hover
-      if (ttTimer) clearTimeout(ttTimer);
-      state.hoveredPoint = d;
-      tooltip.html(buildTooltipHTML(d)).style("opacity", 1);
-      showHoverRadar(d);
-    })
-    .on("mousemove", event => {
-      tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY - 20) + "px");
-    })
-    .on("mouseout", () => {
-      state.hoveredPoint = null;
-      ttTimer = setTimeout(() => {
-        tooltip.style("opacity", 0);
-        hideHoverRadar();
-      }, 50);
-    })
-    .on("click", function (event, d) {
-      // BLOCK click on heavily filtered-out points
-      if (+d3.select(this).style("opacity") < 0.1) return;
+    event.stopPropagation();
+    const id = d.hf_index;
 
-      event.stopPropagation();
-      const id = d.hf_index;
+    if (state.selectedPoint !== null && state.selectedPoint !== id) {
+      _releasePointOpacity(state.selectedPoint, points);
+      _removeSelectionMarker();
+    }
 
-      // Release previous point
-      if (state.selectedPoint !== null && state.selectedPoint !== id) {
-        _releasePointOpacity(state.selectedPoint, points);
-        _removeSelectionMarker();
-      }
+    if (state.selectedPoint === id) {
+      _releasePointOpacity(id, points);
+      state.selectedPoint = null;
+      _removeSelectionMarker();
+      d3.select("#selected-point-info").html("").style("display", "none");
+    } else {
+      state.selectedPoint = id;
+      committedOpacity.set(id, 1);
+      _placeSelectionMarker(d);
 
-      if (state.selectedPoint === id) {
-        // Deselect
-        _releasePointOpacity(id, points);
-        state.selectedPoint = null;
-        _removeSelectionMarker();
-        d3.select("#selected-point-info").html("").style("display", "none");
-      } else {
-        // Select new point — NO game filter change
-        state.selectedPoint = id;
-        committedOpacity.set(id, 1);           // full opacity
-        _placeSelectionMarker(d);
+      d3.select("#selected-point-info")
+        .html(buildStatsCardHTML(d))
+        .style("display", "block");
 
-        d3.select("#selected-point-info")
-          .html(buildStatsCardHTML(d))
-          .style("display", "block");
+      renderMouseTrajectory(id, "trajectory-plot", "#trajectory-caption", points);
+    }
 
-        renderMouseTrajectory(id, "trajectory-plot", "#trajectory-caption", points);
-      }
-
-      updateVisuals();
-    });
+    updateVisuals();
+  });
 }
+
 
 // Release point back to correct filtered opacity
 function _releasePointOpacity(hfIndex, points) {
@@ -242,12 +258,12 @@ function _releasePointOpacity(hfIndex, points) {
   if (!pt) return;
 
   const activeClusters = state.selectedClusters;
-  const activeGameTypes = state.selectedGame 
-    ? new Set([GAME_ID_TO_TYPE[state.selectedGame]]) 
+  const activeGameTypes = state.selectedGame
+    ? new Set([GAME_ID_TO_TYPE[state.selectedGame]])
     : new Set();
 
   const isVisible = (activeClusters.size === 0 || activeClusters.has(pt.cluster)) &&
-                    (activeGameTypes.size === 0 || activeGameTypes.has(pt.game_type));
+    (activeGameTypes.size === 0 || activeGameTypes.has(pt.game_type));
 
   committedOpacity.set(hfIndex, isVisible ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY);
 }
@@ -308,10 +324,10 @@ function _removeSelectionMarker() {
 function updateLegendAppearance() {
   svg.selectAll(".legend-item").each(function (d) {
     const g = d3.select(this);
-    const isHovered  = state.hoveredCluster === d.id;
+    const isHovered = state.hoveredCluster === d.id;
     const isSelected = state.selectedClusters.has(d.id);
     g.select("text")
-      .classed("hovered",  isHovered)
+      .classed("hovered", isHovered)
       .classed("selected", isSelected);
     g.select("rect")
       .attr("stroke-width", isSelected ? 2 : 1);
@@ -324,14 +340,14 @@ function scatterApplyFilter(activeClusters, activeGameTypes) {
     allCircles.filter(d => d.hf_index === state.selectedPoint).raise();
   }
   allCircles
-    .attr("r",            d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R * _dpr : 1.5 * _dpr)
-    .attr("stroke",       d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
+    .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R * _dpr : 1.5 * _dpr)
+    .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
     .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_W * _dpr : 0)
     .transition().duration(TRANSITION_MS).ease(TRANSITION_EASE)
     .attr("opacity", d => {
       if (d.hf_index === state.selectedPoint) return 1;
       const ok = (activeClusters.size === 0 || activeClusters.has(d.cluster)) &&
-                 (activeGameTypes.size === 0 || activeGameTypes.has(d.game_type));
+        (activeGameTypes.size === 0 || activeGameTypes.has(d.game_type));
       const op = ok ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY;
       committedOpacity.set(d.hf_index, op);
       return op;
@@ -364,8 +380,8 @@ function updateVisuals() {
   if (state.selectedPoint !== null) allCircles.filter(d => d.hf_index === state.selectedPoint).raise();
 
   allCircles
-    .attr("r",            d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R * _dpr : 1.5 * _dpr)
-    .attr("stroke",       d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
+    .attr("r", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_R * _dpr : 1.5 * _dpr)
+    .attr("stroke", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
     .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_W * _dpr : 0)
     .transition().duration(HOVER_OUT_MS).ease(TRANSITION_EASE)
     .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY)
