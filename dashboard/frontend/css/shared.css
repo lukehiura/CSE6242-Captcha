@@ -16,10 +16,16 @@
   --text-lo:      #888899;
   --text-muted:   #555566;
 
+/* 
   --cluster-0: #f77189;
   --cluster-1: #97a431;
   --cluster-2: #36ada4;
   --cluster-3: #a48cf4;
+  */
+  --cluster-0: #ff4d6d; /* warm coral red */
+  --cluster-1: #c9d93a; /* lime yellow-green */
+  --cluster-2: #ff9f1c; /* amber orange */
+  --cluster-3: #b388ff; /* soft violet */
 
   --nav-h: 56px;
   --radius-sm: 8px;

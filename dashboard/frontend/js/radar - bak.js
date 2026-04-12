@@ -52,7 +52,7 @@ function initRadar(points) {
   legG.append("polygon")
     .attr("points", `${dx2 + item2W/2},${legTop - dh} ${dx2 + item2W},${legTop} ${dx2 + item2W/2},${legTop + dh} ${dx2},${legTop}`)
     .attr("fill", "#aaa").attr("fill-opacity", 0.45)
-    .attr("stroke", "#aaa").attr("stroke-width", 0.5);
+    .attr("stroke", "#aaa").attr("stroke-width", 1);
   legG.append("text")
     .attr("x", dx2 + item2W + 5).attr("y", legTop)
     .attr("dominant-baseline", "middle")
@@ -63,7 +63,7 @@ function initRadar(points) {
   for (let i = 1; i <= 4; i++) {
     radarSvg.append("circle")
       .attr("r", _radarRadius * (i / 4))
-      .attr("fill", "none").attr("stroke", "#555").attr("stroke-opacity", 0.5).attr("stroke-dasharray", "2,2");
+      .attr("fill", "none").attr("stroke", "#ccc").attr("stroke-dasharray", "2,2");
   }
 
   FEATURES.forEach((f, i) => {
@@ -71,7 +71,7 @@ function initRadar(points) {
     radarSvg.append("line")
       .attr("x1", 0).attr("y1", 0)
       .attr("x2", Math.cos(a) * _radarRadius).attr("y2", Math.sin(a) * _radarRadius)
-      .attr("stroke", "#555").attr("stroke-opacity", 0.5).attr("stroke-dasharray", "2,2");
+      .attr("stroke", "#999");
     radarSvg.append("text")
       .attr("x", Math.cos(a) * (_radarRadius + 18))
       .attr("y", Math.sin(a) * (_radarRadius + 18))
@@ -141,7 +141,6 @@ function showHoverRadar(d) {
     .attr("fill", colorMap[d.cluster])
     .attr("fill-opacity", RADAR_HOVER_FILL_OPY)
     .style("opacity", 1);
-  hoveredRadarPath.raise()
 }
 
 function hideHoverRadar() {

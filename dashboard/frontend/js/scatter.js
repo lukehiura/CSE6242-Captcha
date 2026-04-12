@@ -8,11 +8,19 @@ function _debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+
+
 function initScatter(points, clusters) {
+  console.log(clusters);
   colorMap = {};
-  clusters.forEach((c, i) => {
-    colorMap[c.id] = c.color || COLOR_PALETTE_FALLBACK[i] || "#888";
-  });
+
+colorMap = {};
+
+clusters.forEach((c) => {
+
+  //colorMap[c.id] = c.color || COLOR_PALETTE_FALLBACK[i] || "#888";
+  colorMap[c.id] = CLUSTER_COLORS[c.id];
+});
 
   featureScales = {};
   FEATURES.forEach(f => {
