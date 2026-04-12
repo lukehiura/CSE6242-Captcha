@@ -27,7 +27,7 @@ function initRadar(points) {
   const item1W = 20;
   const item1Label = "Cluster avg";
   const item2W = 12;
-  const item2Label = "Selected point";
+  const item2Label = "Hovered point preview";
   const fontSize = 11;
   const charW = fontSize * 0.52;
   const item1TotalW = item1W + 5 + item1Label.length * charW;

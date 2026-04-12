@@ -14,13 +14,11 @@ function initScatter(points, clusters) {
   console.log(clusters);
   colorMap = {};
 
-colorMap = {};
+  clusters.forEach((c) => {
 
-clusters.forEach((c) => {
-
-  //colorMap[c.id] = c.color || COLOR_PALETTE_FALLBACK[i] || "#888";
-  colorMap[c.id] = CLUSTER_COLORS[c.id];
-});
+    //colorMap[c.id] = c.color || COLOR_PALETTE_FALLBACK[i] || "#888";
+    colorMap[c.id] = CLUSTER_COLORS[c.id];
+  });
 
   featureScales = {};
   FEATURES.forEach(f => {

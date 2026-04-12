@@ -30,7 +30,7 @@ const GAME_ID_TO_TYPE = Object.fromEntries(GAME_FILTERS.map(f => [f.id, f.game_t
 const GAME_TYPE_TO_ID = Object.fromEntries(GAME_FILTERS.map(f => [f.game_type, f.id]));
 
 const SCATTER_SELECTED_OPACITY = 0.5;
-const SCATTER_UNSELECTED_OPACITY = 0.04;
+const SCATTER_UNSELECTED_OPACITY = 0.02;
 const SCATTER_PREVIEW_OPACITY = 0.15;
 const SCATTER_SELECTED_R = 3;
 const SCATTER_SELECTED_STROKE = "#fff";
@@ -47,4 +47,4 @@ const HOVER_IN_MS = 80;
 const HOVER_OUT_MS = 220;
 const TRANSITION_EASE = d3.easeCubicOut;
 
-const MAX_HOVER_DIST = 25 * 25; // squared distance
+const MAX_HOVER_DIST = 15 * 15; // squared distance
