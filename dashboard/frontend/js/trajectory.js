@@ -56,9 +56,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .append("canvas")
       .attr("width",  totalW)
       .attr("height", totalH)
-      .style("position", "absolute")
-      .style("top",  "0").style("left", "0")
-      .style("pointer-events", "none");
+      .attr("class", "traj-overlay");
     const ctx = canvas.node().getContext("2d");
 
     const tSvg = d3.select(`#${targetDivId}`)
@@ -67,9 +65,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("height", totalH)
       .attr("viewBox", `0 0 ${totalW} ${totalH}`)
       .attr("preserveAspectRatio", "xMinYMin meet")
-      .style("position", "absolute")
-      .style("top", "0").style("left", "0")
-      .style("pointer-events", "none");
+      .attr("class", "traj-overlay");
 
     const xSc = d3.scaleLinear().domain(d3.extent(ticks, d => d.x)).range([plotX + 6, plotX + plotSz - 6]);
     const ySc = d3.scaleLinear().domain(d3.extent(ticks, d => d.y)).range([plotY + plotSz - 6, plotY + 6]);
@@ -92,59 +88,25 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const ctrlY   = legY + legH + 6;
 
     const ctrlDiv = document.createElement("div");
-    ctrlDiv.style.cssText = [
-      "position:absolute",
-      `left:${plotX}px`,
-      `top:${ctrlY}px`,
-      `width:${plotSz}px`,
-      `height:${ctrlH}px`,
-      "display:flex",
-      "align-items:center",
-      "gap:8px",
-      "pointer-events:all",
-    ].join(";");
+    ctrlDiv.className = "traj-ctrl";
+    ctrlDiv.style.left   = `${plotX}px`;
+    ctrlDiv.style.top    = `${ctrlY}px`;
+    ctrlDiv.style.width  = `${plotSz}px`;
+    ctrlDiv.style.height = `${ctrlH}px`;
 
     const playBtn = document.createElement("button");
     playBtn.textContent = "⏸";
-    playBtn.style.cssText = [
-      "background:#1e1e2e",
-      "border:1px solid #444",
-      "color:#e0e0e0",
-      "border-radius:4px",
-      "width:26px",
-      "height:26px",
-      "cursor:pointer",
-      "font-size:12px",
-      "flex-shrink:0",
-      "display:flex",
-      "align-items:center",
-      "justify-content:center",
-      "padding:0",
-    ].join(";");
+    playBtn.className = "traj-play-btn";
 
     const scrubber = document.createElement("input");
     scrubber.type  = "range";
     scrubber.min   = "0";
     scrubber.max   = String(ticks.length - 1);
     scrubber.value = "0";
-    scrubber.style.cssText = [
-      "flex:1",
-      "height:4px",
-      "cursor:pointer",
-      "accent-color:#00c8ff",
-      "min-width:0",
-    ].join(";");
+    scrubber.className = "traj-scrubber";
 
     const timeLabel = document.createElement("span");
-    timeLabel.style.cssText = [
-      "color:#aaa",
-      "font-size:10px",
-      "font-family:monospace",
-      "white-space:nowrap",
-      "flex-shrink:0",
-      "min-width:52px",
-      "text-align:right",
-    ].join(";");
+    timeLabel.className = "traj-time-label";
     timeLabel.textContent = "0 ms";
 
     ctrlDiv.appendChild(playBtn);
@@ -170,7 +132,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     const badge = tSvg.append("circle")
       .attr("cx", iconCX).attr("cy", iconCY).attr("r", iconR)
-      .attr("fill", "#1a1a1a").attr("stroke", "#555").attr("stroke-width", 1.5);
+      .attr("class", "traj-badge");
 
     let iconG = null;
     if (gameId && svgIcons[gameId]) {
@@ -185,14 +147,12 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     tSvg.append("text")
       .attr("x", iconCX + iconR + 8).attr("y", iconCY)
-      .attr("dominant-baseline", "middle").attr("class", "filters-text")
-      .style("font-weight", "bold").style("font-size", "11px")
+      .attr("dominant-baseline", "middle").attr("class", "filters-text traj-label-bold")
       .text(gameLabel);
 
     tSvg.append("text")
       .attr("x", iconCX + iconR + 8).attr("y", iconCY + 14)
-      .attr("dominant-baseline", "middle").attr("class", "filters-text")
-      .style("font-size", "10px")
+      .attr("dominant-baseline", "middle").attr("class", "filters-text traj-label-sm")
       .text(`#${hfIndex}`);
 
     const statsLines = [
@@ -208,8 +168,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const typeNodes = statsLines.map((_, li) =>
       tSvg.append("text")
         .attr("x", typeX).attr("y", typeY + li * lineH)
-        .attr("dominant-baseline", "hanging").attr("class", "filters-text")
-        .style("font-family", "monospace").style("font-size", "10px")
+        .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono")
         .text("")
     );
 
@@ -217,14 +176,12 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const prefix     = "Behavior group: ";
     const prefixNode = tSvg.append("text")
       .attr("x", typeX).attr("y", clusterY)
-      .attr("dominant-baseline", "hanging").attr("class", "filters-text")
-      .style("font-family", "monospace").style("font-size", "10px")
+      .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono")
       .attr("opacity", 0).text("");
     const nameNode = tSvg.append("text")
       .attr("x", typeX).attr("y", clusterY)
-      .attr("dominant-baseline", "hanging").attr("class", "filters-text")
-      .style("font-family", "monospace").style("font-size", "10px")
-      .style("font-weight", "bold").style("fill", clusterColor)
+      .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono-bold")
+      .style("fill", clusterColor)
       .attr("opacity", 0).text("");
 
     function typeLines(lines, nodes, delay, onDone) {
@@ -276,15 +233,14 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         .attr("x", typeX).attr("y", btnY)
         .attr("width", btnW).attr("height", btnH)
         .attr("rx", 4)
-        .attr("fill", "#222").attr("stroke", "#666").attr("stroke-width", 1)
-        .attr("opacity", 0)
-        .style("cursor", "pointer").style("pointer-events", "all");
+        .attr("class", "traj-replay-rect")
+        .attr("opacity", 0);
 
       const btnTxt = tSvg.append("text")
         .attr("x", typeX + btnW / 2).attr("y", btnY + btnH / 2)
         .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-        .attr("class", "filters-text")
-        .style("font-size", "10px").style("pointer-events", "none")
+        .attr("class", "filters-text traj-label-sm")
+        .style("pointer-events", "none")
         .attr("opacity", 0)
         .text("▶ Replay");
 
@@ -460,6 +416,6 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     if (err?.name === "AbortError") return;
     const trajDiv = document.getElementById(targetDivId);
     if (trajDiv) trajDiv.innerHTML =
-      `<p style="padding:8px;color:#c66">Failed to load session (${err.message || err})</p>`;
+      `<p class="traj-error">Failed to load session (${err.message || err})</p>`;
   });
 }

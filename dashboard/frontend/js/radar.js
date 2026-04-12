@@ -39,31 +39,28 @@ function initRadar(points) {
   legG.append("line")
     .attr("x1", legX).attr("y1", legTop)
     .attr("x2", legX + item1W).attr("y2", legTop)
-    .attr("stroke", "#aaa").attr("stroke-width", 2);
+    .attr("class", "radar-legend-line-swatch");
   legG.append("text")
     .attr("x", legX + item1W + 5).attr("y", legTop)
     .attr("dominant-baseline", "middle")
-    .attr("class", "filters-text")
-    .style("font-size", `${fontSize}px`)
+    .attr("class", "filters-text radar-legend-label")
     .text(item1Label);
 
   const dx2 = legX + item1TotalW + gap;
   const dh  = 5;
   legG.append("polygon")
     .attr("points", `${dx2 + item2W/2},${legTop - dh} ${dx2 + item2W},${legTop} ${dx2 + item2W/2},${legTop + dh} ${dx2},${legTop}`)
-    .attr("fill", "#aaa").attr("fill-opacity", 0.45)
-    .attr("stroke", "#aaa").attr("stroke-width", 0.5);
+    .attr("class", "radar-legend-diamond-swatch");
   legG.append("text")
     .attr("x", dx2 + item2W + 5).attr("y", legTop)
     .attr("dominant-baseline", "middle")
-    .attr("class", "filters-text")
-    .style("font-size", `${fontSize}px`)
+    .attr("class", "filters-text radar-legend-label")
     .text(item2Label);
 
   for (let i = 1; i <= 4; i++) {
     radarSvg.append("circle")
       .attr("r", _radarRadius * (i / 4))
-      .attr("fill", "none").attr("stroke", "#555").attr("stroke-opacity", 0.5).attr("stroke-dasharray", "2,2");
+      .attr("class", "radar-grid-ring");
   }
 
   FEATURES.forEach((f, i) => {
@@ -71,13 +68,12 @@ function initRadar(points) {
     radarSvg.append("line")
       .attr("x1", 0).attr("y1", 0)
       .attr("x2", Math.cos(a) * _radarRadius).attr("y2", Math.sin(a) * _radarRadius)
-      .attr("stroke", "#555").attr("stroke-opacity", 0.5).attr("stroke-dasharray", "2,2");
+      .attr("class", "radar-grid-spoke");
     radarSvg.append("text")
       .attr("x", Math.cos(a) * (_radarRadius + 18))
       .attr("y", Math.sin(a) * (_radarRadius + 18))
       .attr("text-anchor", "middle").attr("alignment-baseline", "middle")
-      .attr("class", "filters-text")
-      .style("font-size", "11px")
+      .attr("class", "filters-text radar-axis-label")
       .text(f);
   });
 

@@ -626,3 +626,151 @@ html, body {
   font-size: 0.6rem;
   color: var(--text-muted);
 }
+
+/* =============================================================================
+   9. RADAR CHART — Grid, legend, axis labels
+   ============================================================================= */
+
+/* Concentric grid rings */
+.radar-grid-ring {
+  fill: none;
+  stroke: #555;
+  stroke-opacity: 0.5;
+  stroke-dasharray: 2, 2;
+}
+
+/* Spoke lines */
+.radar-grid-spoke {
+  stroke: #555;
+  stroke-opacity: 0.5;
+  stroke-dasharray: 2, 2;
+}
+
+/* Legend line swatch (cluster avg) */
+.radar-legend-line-swatch {
+  stroke: #aaa;
+  stroke-width: 2;
+}
+
+/* Legend diamond swatch (hover preview) */
+.radar-legend-diamond-swatch {
+  fill: #aaa;
+  fill-opacity: 0.45;
+  stroke: #aaa;
+  stroke-width: 0.5;
+}
+
+/* Radar axis feature labels — slightly smaller than base filters-text */
+.radar-axis-label {
+  font-size: 11px;
+}
+
+/* Radar legend labels — match axis size */
+.radar-legend-label {
+  font-size: 11px;
+}
+
+
+/* =============================================================================
+   10. TRAJECTORY — Controls, badge, info text, error state
+   ============================================================================= */
+
+/* Overlay canvas & SVG — structural, but consistent */
+.traj-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* Controls row container — positional styles set in JS from layout math */
+.traj-ctrl {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: all;
+}
+
+/* Play/pause button */
+.traj-play-btn {
+  background: #1e1e2e;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Scrubber range input */
+.traj-scrubber {
+  flex: 1;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  min-width: 0;
+}
+
+/* Time readout label */
+.traj-time-label {
+  color: #aaa;
+  font-size: 10px;
+  font-family: monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Game icon badge circle (base / reset state) */
+.traj-badge {
+  fill: #1a1a1a;
+  stroke: #555;
+  stroke-width: 1.5;
+}
+
+/* Replay button rect */
+.traj-replay-rect {
+  fill: #222;
+  stroke: #666;
+  stroke-width: 1;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+/* SVG text modifier: bold small label (game name) */
+.traj-label-bold {
+  font-weight: bold;
+  font-size: 11px;
+}
+
+/* SVG text modifier: small dim label (session id, stats) */
+.traj-label-sm {
+  font-size: 10px;
+}
+
+/* SVG text modifier: monospace stats / typewriter lines */
+.traj-label-mono {
+  font-family: monospace;
+  font-size: 10px;
+}
+
+/* SVG text modifier: monospace + bold (cluster name reveal) */
+.traj-label-mono-bold {
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Error paragraph injected on fetch failure */
+.traj-error {
+  padding: 8px;
+  color: #c66;
+}
