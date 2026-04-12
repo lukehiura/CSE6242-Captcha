@@ -26,7 +26,7 @@ const GAME_TYPE_TO_ID = Object.fromEntries(GAME_FILTERS.map(f => [f.game_type, f
 const SCATTER_SELECTED_OPACITY    = 0.5;
 const SCATTER_UNSELECTED_OPACITY  = 0.04;
 const SCATTER_PREVIEW_OPACITY     = 0.15;
-const SCATTER_SELECTED_R          = 5;
+const SCATTER_SELECTED_R          = 3;
 const SCATTER_SELECTED_STROKE     = "#fff";
 const SCATTER_SELECTED_STROKE_W   = 1.5;
 

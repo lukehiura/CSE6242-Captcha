@@ -63,8 +63,9 @@ function initScatter(points, clusters) {
     .attr("r", 1.5 * dpr)
     .attr("fill", d => colorMap[d.cluster])
     .attr("opacity", SCATTER_SELECTED_OPACITY)
-    .style("cursor", "pointer");
+    .style("cursor", d => committedOpacity.get(d.hf_index) < 0.1 ? "default" : "pointer");
 
+  // Legend
   const legendSpacing = 20 * dpr, sq = 13 * dpr, gap = 7 * dpr;
   const legendG = svg.append("g")
     .attr("class", "pca-legend")
@@ -183,7 +184,7 @@ function attachCircleHover(points) {
 
   circles
     .on("mouseover", function (event, d) {
-      if (+d3.select(this).style("opacity") < 0.05) return;
+      if (+d3.select(this).style("opacity") < 0.1) return;   // stricter threshold for hover
       if (ttTimer) clearTimeout(ttTimer);
       state.hoveredPoint = d;
       tooltip.html(buildTooltipHTML(d)).style("opacity", 1);
@@ -200,12 +201,13 @@ function attachCircleHover(points) {
       }, 50);
     })
     .on("click", function (event, d) {
-      if (+d3.select(this).style("opacity") < 0.05) return;
-      event.stopPropagation();
+      // BLOCK click on heavily filtered-out points
+      if (+d3.select(this).style("opacity") < 0.1) return;
 
+      event.stopPropagation();
       const id = d.hf_index;
 
-      // Release previous point if switching
+      // Release previous point
       if (state.selectedPoint !== null && state.selectedPoint !== id) {
         _releasePointOpacity(state.selectedPoint, points);
         _removeSelectionMarker();
@@ -217,25 +219,15 @@ function attachCircleHover(points) {
         state.selectedPoint = null;
         _removeSelectionMarker();
         d3.select("#selected-point-info").html("").style("display", "none");
-        // Optional: clear trajectory on deselect
-        // d3.select("#trajectory-plot").html("");
       } else {
-        // Select new point
+        // Select new point — NO game filter change
         state.selectedPoint = id;
-        committedOpacity.set(id, 1);           // Full opacity for selected point
+        committedOpacity.set(id, 1);           // full opacity
         _placeSelectionMarker(d);
 
         d3.select("#selected-point-info")
           .html(buildStatsCardHTML(d))
           .style("display", "block");
-
-        // Auto-select game filter if needed
-        const gameId = GAME_TYPE_TO_ID[d.game_type] || null;
-        if (gameId && state.selectedGame !== gameId) {
-          state.selectedGame = gameId;
-          updateFilterAppearance();
-          applyFilter();
-        }
 
         renderMouseTrajectory(id, "trajectory-plot", "#trajectory-caption", points);
       }
@@ -244,7 +236,7 @@ function attachCircleHover(points) {
     });
 }
 
-// Release a point back to its correct filtered opacity
+// Release point back to correct filtered opacity
 function _releasePointOpacity(hfIndex, points) {
   const pt = points.find(p => p.hf_index === hfIndex);
   if (!pt) return;
@@ -273,7 +265,7 @@ function _placeSelectionMarker(d) {
     .attr("cx", cx).attr("cy", cy)
     .attr("r", baseR)
     .attr("fill", "none")
-    .attr("stroke", clr)
+    .attr("stroke", SCATTER_SELECTED_STROKE)
     .attr("stroke-width", 1.5 * _dpr)
     .attr("opacity", 0.9)
     .attr("pointer-events", "none")
@@ -282,7 +274,7 @@ function _placeSelectionMarker(d) {
   const animR = document.createElementNS("http://www.w3.org/2000/svg", "animate");
   animR.setAttribute("attributeName", "r");
   animR.setAttribute("from", baseR);
-  animR.setAttribute("to", baseR * 4);
+  animR.setAttribute("to", baseR * 5);
   animR.setAttribute("dur", "1.4s");
   animR.setAttribute("repeatCount", "indefinite");
   animR.setAttribute("calcMode", "spline");
@@ -376,5 +368,6 @@ function updateVisuals() {
     .attr("stroke",       d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE : "none")
     .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_W * _dpr : 0)
     .transition().duration(HOVER_OUT_MS).ease(TRANSITION_EASE)
-    .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY);
+    .attr("opacity", d => committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY)
+    .style("cursor", d => committedOpacity.get(d.hf_index) < 0.1 ? "default" : "pointer");
 }
