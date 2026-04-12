@@ -200,36 +200,22 @@ function attachCircleHover(points) {
       }, 50);
     })
     .on("click", function (event, d) {
-      if (+d3.select(this).style("opacity") < 0.05) return;
       event.stopPropagation();
-
       const id = d.hf_index;
-
-      // Release previous point if switching
-      if (state.selectedPoint !== null && state.selectedPoint !== id) {
-        _releasePointOpacity(state.selectedPoint, points);
-        _removeSelectionMarker();
-      }
-
       if (state.selectedPoint === id) {
-        // Deselect
-        _releasePointOpacity(id, points);
         state.selectedPoint = null;
         _removeSelectionMarker();
         d3.select("#selected-point-info").html("").style("display", "none");
-        // Optional: clear trajectory on deselect
-        // d3.select("#trajectory-plot").html("");
+        d3.select("#trajectory-plot").html("");
+        d3.select("#trajectory-caption").html("");
       } else {
-        // Select new point
         state.selectedPoint = id;
-        committedOpacity.set(id, 1);           // Full opacity for selected point
         _placeSelectionMarker(d);
-
         d3.select("#selected-point-info")
           .html(buildStatsCardHTML(d))
+          .classed("tooltip-style", false)
           .style("display", "block");
 
-        // Auto-select game filter if needed
         const gameId = GAME_TYPE_TO_ID[d.game_type] || null;
         if (gameId && state.selectedGame !== gameId) {
           state.selectedGame = gameId;
@@ -239,25 +225,8 @@ function attachCircleHover(points) {
 
         renderMouseTrajectory(id, "trajectory-plot", "#trajectory-caption", points);
       }
-
       updateVisuals();
     });
-}
-
-// Release a point back to its correct filtered opacity
-function _releasePointOpacity(hfIndex, points) {
-  const pt = points.find(p => p.hf_index === hfIndex);
-  if (!pt) return;
-
-  const activeClusters = state.selectedClusters;
-  const activeGameTypes = state.selectedGame 
-    ? new Set([GAME_ID_TO_TYPE[state.selectedGame]]) 
-    : new Set();
-
-  const isVisible = (activeClusters.size === 0 || activeClusters.has(pt.cluster)) &&
-                    (activeGameTypes.size === 0 || activeGameTypes.has(pt.game_type));
-
-  committedOpacity.set(hfIndex, isVisible ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY);
 }
 
 function _placeSelectionMarker(d) {
@@ -337,7 +306,7 @@ function scatterApplyFilter(activeClusters, activeGameTypes) {
     .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_W * _dpr : 0)
     .transition().duration(TRANSITION_MS).ease(TRANSITION_EASE)
     .attr("opacity", d => {
-      if (d.hf_index === state.selectedPoint) return 1;
+      if (d.hf_index === state.selectedPoint) { committedOpacity.set(d.hf_index, 1); return 1; }
       const ok = (activeClusters.size === 0 || activeClusters.has(d.cluster)) &&
                  (activeGameTypes.size === 0 || activeGameTypes.has(d.game_type));
       const op = ok ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY;
