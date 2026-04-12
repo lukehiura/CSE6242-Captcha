@@ -86,8 +86,7 @@ function initScatter(points, clusters) {
 
   legendItems.append("rect")
     .attr("width", sq).attr("height", sq)
-    .attr("fill", d => colorMap[d.id] || "#888")
-    .attr("stroke", "#333").attr("stroke-width", 1);
+    .attr("fill", d => colorMap[d.id] || "#888");
 
   legendItems.append("text")
     .text(d => CLUSTER_NAMES[d.id])
@@ -118,19 +117,7 @@ function initScatter(points, clusters) {
     });
 
   tooltip = d3.select("body").append("div")
-    .attr("id", "tooltip")
-    .style("position", "absolute")
-    .style("pointer-events", "none")
-    .style("opacity", 0)
-    .style("z-index", 9999)
-    .style("background", "rgba(0,0,0,0.7)")
-    .style("color", "white")
-    .style("padding", "6px")
-    .style("border-radius", "4px")
-    .style("font-size", "0.85rem")
-    .style("transition", "opacity 0.15s")
-    .style("white-space", "normal")
-    .style("max-width", "250px");
+    .attr("id", "tooltip");
 
   attachCircleHover(points);
 
@@ -183,14 +170,14 @@ function initScatter(points, clusters) {
 
 function buildTooltipHTML(d) {
   return `
-    <div style="font-size:0.75rem;opacity:0.7;margin-bottom:2px">#${d.hf_index} · ${d.game_type}</div>
-    <div style="font-weight:bold;color:${colorMap[d.cluster]};margin-bottom:4px">${CLUSTER_NAMES[d.cluster]}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 10px;font-size:0.78rem">
-      <span style="opacity:0.65">Speed</span><span>${d.speed_mean.toFixed(2)}</span>
-      <span style="opacity:0.65">Efficiency</span><span>${d.path_efficiency.toFixed(2)}</span>
-      <span style="opacity:0.65">Pause rate</span><span>${d.pause_rate.toFixed(2)}</span>
-      <span style="opacity:0.65">Duration</span><span>${d.duration.toFixed(2)}</span>
-      <span style="opacity:0.65">Anomaly</span><span>${d.anomaly_score.toFixed(2)}</span>
+    <div class="tooltip-meta">#${d.hf_index} · ${d.game_type}</div>
+    <div class="tooltip-cluster" style="color:${colorMap[d.cluster]}">${CLUSTER_NAMES[d.cluster]}</div>
+    <div class="tooltip-grid">
+      <span class="tooltip-dim">Speed</span><span>${d.speed_mean.toFixed(2)}</span>
+      <span class="tooltip-dim">Efficiency</span><span>${d.path_efficiency.toFixed(2)}</span>
+      <span class="tooltip-dim">Pause rate</span><span>${d.pause_rate.toFixed(2)}</span>
+      <span class="tooltip-dim">Duration</span><span>${d.duration.toFixed(2)}</span>
+      <span class="tooltip-dim">Anomaly</span><span>${d.anomaly_score.toFixed(2)}</span>
     </div>
   `;
 }
@@ -334,8 +321,7 @@ function updateLegendAppearance() {
     g.select("text")
       .classed("hovered", isHovered)
       .classed("selected", isSelected);
-    g.select("rect")
-      .attr("stroke-width", isSelected ? 2 : 1);
+    g.classed("selected", isSelected);
   });
 }
 

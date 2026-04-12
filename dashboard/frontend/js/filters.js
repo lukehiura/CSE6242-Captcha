@@ -60,10 +60,7 @@ function _buildFilterSvg(filterDiv, points) {
     .style("cursor", "pointer");
 
   filterItems.append("circle")
-    .attr("r", circleR)
-    .attr("fill", "#888")
-    .attr("stroke", "#888")
-    .attr("stroke-width", 1.5);
+    .attr("r", circleR);
 
   filterItems.append("g")
     .attr("class", "icon-wrapper")
@@ -132,44 +129,21 @@ function updateFilterAppearance() {
 
   filterItems.each(function (d) {
     const g = d3.select(this);
-
     const isHovered = state.hoveredGame === d.id;
     const isSelected = state.selectedGame === d.id;
 
-    const strokeColor = isSelected
-      ? "#00d4ff"
-      : isHovered
-        ? "#dddddd"
-        : "#555";
+    // Drive all visual states via CSS classes
+    g.classed("hovered", isHovered && !isSelected)
+     .classed("selected", isSelected);
 
-    const fillColor = isSelected
-      ? "#0f1116"
-      : isHovered
-        ? "#2a2a2a"
-        : "#1a1a1a";
-
-    const iconColor = isSelected
-      ? "#00d4ff"
-      : isHovered
-        ? "#ffffff"
-        : "#cfcfcf";
-
+    // drop-shadow must stay as an SVG presentation attr (no CSS equivalent for SVG filters)
     g.select("circle")
-      .attr("fill", fillColor)
-      .attr("stroke", strokeColor)
-      .attr("stroke-width", isSelected ? 3.5 : isHovered ? 2.5 : 1.5)
-      .style("filter",
-        isSelected ? "drop-shadow(0 0 6px #00d4aa55)" : "none"
-      );
+      .style("filter", isSelected ? "drop-shadow(0 0 6px #00d4aa55)" : "none");
 
+    // .filters-text state — CSS handles fill via .hovered/.selected; just toggle classes
     g.select("text")
-      .classed("hovered", isHovered)
-      .classed("selected", isSelected)
-      .style("fill", isSelected ? "#e6f7ff" : "#aaa");
-
-    g.select(".icon-wrapper")
-      .style("color", iconColor)
-      .style("opacity", isHovered || isSelected ? 1 : 0.65);
+      .classed("hovered", isHovered && !isSelected)
+      .classed("selected", isSelected);
   });
 }
 
