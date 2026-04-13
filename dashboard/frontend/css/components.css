@@ -1,0 +1,157 @@
+/* =============================================================================
+   components.css — UI Elements
+   ============================================================================= */
+
+/* NAV */
+.cc-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 28px;
+  background: rgba(8,8,16,0.92);
+  border-bottom: 1px solid var(--bg-border);
+  backdrop-filter: blur(14px);
+  z-index: 200;
+}
+
+.cc-nav-logo {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-hi);
+  text-decoration: none;
+}
+.cc-nav-logo .accent { color: var(--accent); }
+
+.cc-nav-section {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.cc-nav-link {
+  font-size: 0.85rem;
+  padding: 6px 16px;
+  border: 1px solid var(--bg-border-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-lo);
+  text-decoration: none;
+}
+
+/* BUTTON BASE */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: 0.18s;
+}
+
+/* PRIMARY */
+.btn-primary {
+  padding: 13px 36px;
+  background: var(--accent);
+  color: #000;
+  font-weight: 800;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+/* SECONDARY */
+.btn-secondary {
+  padding: 8px 18px;
+  border: 1px solid var(--bg-border-2);
+  color: var(--text-lo);
+}
+
+/* GHOST */
+.btn-ghost {
+  padding: 13px 30px;
+  border: 1px solid var(--bg-border-2);
+  color: var(--text-lo);
+}
+
+/* Badges */
+.cluster-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1.5px solid currentColor;
+  border-radius: 20px;
+  padding: 4px 16px;
+}
+
+/* Spinner */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--bg-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error */
+.error-banner {
+  display: none;
+  background: #1a0000;
+  border: 1px solid #600;
+  color: #f88;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: 50px 1fr;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* shared panel header */
+.panel > h3 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: 0.18s;
+}
+
+.text-ui { font-family: var(--font-ui); }
+
+.text-muted { color: var(--text-muted); }
+
+.text-sm { font-size: 0.85rem; }
+.text-xs { font-size: 0.75rem; }
+.text-md { font-size: 1rem; }
+.text-lg { font-size: 1.15rem; }
+
+.is-hovered { transition: 120ms ease; }
+.is-selected { transition: 120ms ease; }
+.is-disabled { opacity: 0.5; pointer-events: none; }
+
+
+

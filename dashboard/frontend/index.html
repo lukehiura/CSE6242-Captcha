@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CaptchaCapture — Dashboard</title>
-<link rel="stylesheet" href="css/shared.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/viz.css">
 </head>
 <body>
 <nav class="cc-nav">
@@ -14,28 +17,28 @@
   <a href="/" class="cc-nav-link">← Play game</a>
 </nav>
 <div id="dashboard">
-  <div id="scatter-wrapper">
+  <div id="scatter-wrapper" class="panel">
     <h3>PCA Scatter Plot (PC1 vs PC2)</h3>
     <div id="scatter-plot"></div>
   </div>
 
-  <div id="radar-wrapper">
+  <div id="radar-wrapper" class="panel">
     <h3>Behavior Profile Radar</h3>
     <div id="radar"></div>
   </div>
 
-  <div id="filter-wrapper">
+  <div id="filter-wrapper" class="panel">
     <h3>Game Type</h3>
     <div id="filter-container"></div>
   </div>
 
-  <div id="trajectory-wrapper">
+  <div id="trajectory-wrapper" class="panel">
     <h3>Mouse Trajectory</h3>
     <div id="trajectory-plot"></div>
     <div id="trajectory-caption"></div>
   </div>
 
-  <div id="selected-point-info-wrapper">
+  <div id="selected-point-info-wrapper" class="panel">
     <div id="selected-point-info"></div>
   </div>
 </div>

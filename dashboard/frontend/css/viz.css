@@ -1,0 +1,185 @@
+/* =============================================================================
+   viz.css — Data Visualization Styles (cleaned)
+   ============================================================================= */
+
+/* =============================================================================
+   GLOBAL SVG DEFAULTS
+   ============================================================================= */
+
+svg text {
+  font-family: var(--font-ui);
+  fill: var(--text-mid);
+}
+
+/* =============================================================================
+   TOOLTIP
+   ============================================================================= */
+
+#tooltip {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--text-hi);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  max-width: 260px;
+}
+
+.tooltip-meta {
+  opacity: 0.7;
+  margin-bottom: 4px;
+  font-size: 0.66rem;
+}
+
+.tooltip-cluster {
+  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+}
+
+.tooltip-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 10px;
+  row-gap: 2px;
+}
+
+.tooltip-dim {
+  opacity: 0.6;
+}
+
+/* =============================================================================
+   FILTERS + LEGEND SYSTEM
+   ============================================================================= */
+
+.is-hovered text {
+  fill: var(--text-hi);
+}
+
+.is-selected text {
+  fill: var(--text-hi);
+  font-weight: 600;
+}
+
+/* FILTER ITEMS */
+.filter-item circle {
+  fill: #1a1a1a;
+  stroke: #555;
+  stroke-width: 1.5px;
+  transition: all 140ms ease;
+}
+
+.filter-item.is-hovered circle {
+  fill: #2a2a2a;
+  stroke: var(--accent-dim);
+  stroke-width: 2.5px;
+}
+
+.filter-item.is-selected circle {
+  fill: #0f1116;
+  stroke: var(--accent);
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 10px var(--accent-dim));
+}
+
+/* LEGEND ITEMS */
+.legend-item rect {
+  stroke: #333;
+  transition: stroke 120ms ease, stroke-width 120ms ease;
+}
+
+.legend-item.is-selected rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.legend-item.is-hovered rect {
+  stroke: var(--accent-dim);
+}
+
+/* =============================================================================
+   DATA-VIS AXIS SYSTEM (DEBUG UNIFIED)
+   ============================================================================= */
+
+/* =========================
+   SHARED AXIS LINES (SCATTER + RADAR)
+   ========================= */
+
+.axis line,
+.axis path,
+.radar-grid-ring,
+.radar-grid-spoke {
+  stroke: var(--text-muted); /* DEBUG: unified axis color */
+  stroke-opacity: 0.7;
+}
+
+/* =========================
+   RADAR STRUCTURE VARIANTS
+   ========================= */
+   
+.radar-grid-ring,
+.radar-grid-spoke {
+  stroke-dasharray: 2, 2;
+}
+
+/* =========================
+   TEXT LABELS (SCATTER + RADAR UNIFIED)
+   ========================= */
+
+.axis text,
+.axis-label,
+.radar-axis-label,
+.radar-legend-label {
+  font-family: var(--font-ui);
+  opacity: 0.95;
+}
+
+.radar-legend-label {
+  font-size: .9rem;
+}
+
+/* =============================================================================
+   TRAJECTORY
+   ============================================================================= */
+
+.traj-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.traj-play-btn {
+  background: #1e1e2e;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  width: 26px;
+  height: 26px;
+}
+
+.traj-scrubber {
+  accent-color: var(--accent);
+}
+
+.traj-time-label {
+  color: #aaa;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+/* =============================================================================
+   STATS
+   ============================================================================= */
+
+.stats-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}

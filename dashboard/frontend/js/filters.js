@@ -80,7 +80,6 @@ function _buildFilterSvg(filterDiv, points) {
     });
 
   filterItems.append("text")
-    .attr("class", "filters-text")
     .attr("x", 0)
     .attr("y", circleR * 1.2)
     .attr("text-anchor", "middle")
@@ -121,7 +120,7 @@ function _buildFilterSvg(filterDiv, points) {
           .attr("transform", `${baseT} scale(1)`);
       }
     });
-    updateFilterAppearance();
+  updateFilterAppearance();
 }
 
 function updateFilterAppearance() {
@@ -129,21 +128,14 @@ function updateFilterAppearance() {
 
   filterItems.each(function (d) {
     const g = d3.select(this);
+
     const isHovered = state.hoveredGame === d.id;
     const isSelected = state.selectedGame === d.id;
 
-    // Drive all visual states via CSS classes
-    g.classed("hovered", isHovered && !isSelected)
-     .classed("selected", isSelected);
+    g.classed("is-hovered", isHovered)
+      .classed("is-selected", isSelected);
 
-    // drop-shadow must stay as an SVG presentation attr (no CSS equivalent for SVG filters)
-    g.select("circle")
-      .style("filter", isSelected ? "drop-shadow(0 0 6px #00d4aa55)" : "none");
 
-    // .filters-text state — CSS handles fill via .hovered/.selected; just toggle classes
-    g.select("text")
-      .classed("hovered", isHovered && !isSelected)
-      .classed("selected", isSelected);
   });
 }
 

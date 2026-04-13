@@ -52,13 +52,30 @@ function initScatter(points, clusters) {
     .style("height", "100%");
 
   const x0 = x(0), y0 = y(0);
-  svg.append("g").attr("transform", `translate(0,${y0})`).call(d3.axisBottom(x).ticks(6));
-  svg.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).ticks(6));
+  svg.append("g")
+    .attr("class", "axis axis-x")
+    .attr("transform", `translate(0,${y0})`)
+    .call(d3.axisBottom(x).ticks(6));
 
-  svg.append("text").attr("x", x0).attr("y", margin.top - 14 * dpr)
-    .attr("text-anchor", "middle").attr("class", "axis-label").text("PC2");
-  svg.append("text").attr("x", margin.left + inner + 14 * dpr).attr("y", y0 + 1.5)
-    .attr("text-anchor", "start").attr("dominant-baseline", "middle").attr("class", "axis-label").text("PC1");
+  svg.append("g")
+    .attr("class", "axis axis-y")
+    .attr("transform", `translate(${x0},0)`)
+    .call(d3.axisLeft(y).ticks(6));
+
+  svg.append("text")
+    .attr("class", "axis-label")
+    .attr("x", x0)
+    .attr("y", margin.top - 14 * dpr)
+    .attr("text-anchor", "middle")
+    .text("PC2");
+
+  svg.append("text")
+    .attr("class", "axis-label")
+    .attr("x", margin.left + inner + 14 * dpr)
+    .attr("y", y0 + 1.5)
+    .attr("text-anchor", "start")
+    .attr("dominant-baseline", "middle")
+    .text("PC1");
 
   circles = svg.selectAll(".point-circle")
     .data(points, d => d.hf_index)
@@ -74,7 +91,6 @@ function initScatter(points, clusters) {
   // Legend
   const legendSpacing = 20 * dpr, sq = 13 * dpr, gap = 7 * dpr;
   const legendG = svg.append("g")
-    .attr("class", "pca-legend")
     .attr("transform", `translate(${margin.left}, ${margin.top + inner - clusters.length * legendSpacing})`);
 
   const legendItems = legendG.selectAll(".legend-item")
@@ -91,8 +107,7 @@ function initScatter(points, clusters) {
   legendItems.append("text")
     .text(d => CLUSTER_NAMES[d.id])
     .attr("x", sq + gap).attr("y", sq / 2)
-    .attr("dominant-baseline", "middle")
-    .attr("class", "filters-text");
+    .attr("dominant-baseline", "middle");
 
   const _legendPreview = _debounce(updatePreview, 40);
 
@@ -161,7 +176,7 @@ function initScatter(points, clusters) {
   });
 
   document.addEventListener("click", e => {
-    const interactive = "#scatter-plot, #filter-container, #radar, #trajectory-wrapper, #selected-point-info-wrapper, .pca-legend, .replay-btn";
+    const interactive = "#scatter-plot, #filter-container, #radar, #trajectory-wrapper, #selected-point-info-wrapper, .replay-btn";
     if (e.target.closest(interactive)) return;
     resetAll();
   });
@@ -316,12 +331,12 @@ function _removeSelectionMarker() {
 function updateLegendAppearance() {
   svg.selectAll(".legend-item").each(function (d) {
     const g = d3.select(this);
+
     const isHovered = state.hoveredCluster === d.id;
     const isSelected = state.selectedClusters.has(d.id);
-    g.select("text")
-      .classed("hovered", isHovered)
-      .classed("selected", isSelected);
-    g.classed("selected", isSelected);
+
+    g.classed("is-hovered", isHovered);
+    g.classed("is-selected", isSelected);
   });
 }
 

@@ -1,0 +1,40 @@
+/* =============================================================================
+   tokens.css — Design System
+   ============================================================================= */
+
+:root {
+  /* Backgrounds */
+  --bg-base:      #080810;
+  --bg-surface:   #0d0d1a;
+  --bg-raised:    #12121f;
+  --bg-border:    #1e1e30;
+  --bg-border-2:  #2a2a40;
+
+  /* Accent */
+  --accent:       #00d4ff;
+  --accent-dim:   #00d4ff44;
+  --accent-hover: #33ddff;
+
+  /* Text */
+  --text-hi:      #ffffff;
+  --text-mid:     #c8c8d8;
+  --text-lo:      #888899;
+  --text-muted:   #555566;
+
+  /* Cluster palette */
+  --cluster-0: #ff4d6d;
+  --cluster-1: #c9d93a;
+  --cluster-2: #ff9f1c;
+  --cluster-3: #b388ff;
+
+  /* Layout */
+  --nav-h: 56px;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Typography */
+  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
