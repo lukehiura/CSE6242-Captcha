@@ -2,182 +2,140 @@ let _trajAbortCtrl = null;
 let _trajRafId = null;
 
 function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoints) {
-  // ─── Cancel any in-flight work ─────────────────────────────
-  if (_trajAbortCtrl) {
-    _trajAbortCtrl.abort();
-    _trajAbortCtrl = null;
-  }
-
-  if (_trajRafId) {
-    cancelAnimationFrame(_trajRafId);
-    _trajRafId = null;
-  }
+  if (_trajAbortCtrl) { _trajAbortCtrl.abort(); _trajAbortCtrl = null; }
+  if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
 
   _trajAbortCtrl = new AbortController();
   const { signal } = _trajAbortCtrl;
 
-  // ─── Fetch session ─────────────────────────────────────────
   d3.json(`${API_BASE}/session/${hfIndex}`, { signal }).then(session => {
     _trajAbortCtrl = null;
 
     const ticks = session.ticks || [];
     const gameType = session.game_type;
 
+    // ─── Root div (trajectory-plot) — clear it ────────────────
     const trajDiv = document.getElementById(targetDivId);
     if (!trajDiv) return;
-
-    // Fast clear (better than innerHTML = "" in heavy DOM cases)
     while (trajDiv.firstChild) trajDiv.removeChild(trajDiv.firstChild);
+
+    // ─── Left / Right panels ──────────────────────────────────
+    // These are the two sibling divs inside #trajectory-plot.
+    // We create them here so the whole component is self-contained
+    // (if the divs already exist from a previous render they were
+    //  cleared above along with the rest of trajDiv's children).
+    const leftDiv = document.createElement("div");
+    leftDiv.id = "traj-left";
+    leftDiv.className = "traj-half";
+
+    const rightDiv = document.createElement("div");
+    rightDiv.id = "traj-right";
+    rightDiv.className = "traj-half";
+
+    trajDiv.appendChild(leftDiv);
+    trajDiv.appendChild(rightDiv);
 
     const caption = d3.select(captionSelector);
 
     if (ticks.length === 0) {
-      trajDiv.innerHTML = "<p>No tick data.</p>";
-      caption.html(
-        `<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`
-      );
+      leftDiv.innerHTML = "<p>No tick data.</p>";
+      caption.html(`<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`);
       return;
     }
 
-    // ─── Lookup metadata ──────────────────────────────────────
+    // ─── Metadata ─────────────────────────────────────────────
     const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
-
     const clusterId = pointData?.cluster ?? null;
     const clusterColor = clusterId != null ? (colorMap[clusterId] || "#888") : "#888";
-    const clusterLabel = clusterId != null
-      ? (CLUSTER_NAMES[clusterId] || `Cluster ${clusterId}`)
-      : "Unknown";
-
+    const clusterLabel = clusterId != null ? (CLUSTER_NAMES[clusterId] || `Cluster ${clusterId}`) : "Unknown";
     const gameId = GAME_TYPE_TO_ID[gameType] || null;
     const gameLabel = GAME_FILTERS.find(f => f.id === gameId)?.label || gameType;
 
-    // ─── CSS TOKENS (single read = important) ─────────────────
-    const css = getComputedStyle(document.documentElement);
-
+    // ─── CSS tokens (fallbacks keep canvas drawing safe) ─────
+    const cssVars = getComputedStyle(document.documentElement);
     const TOKENS = {
-      bg: css.getPropertyValue("--traj-bg").trim(),
-      border: css.getPropertyValue("--traj-border").trim(),
-      cursorUp: css.getPropertyValue("--traj-cursor-up").trim(),
-      cursorDown: css.getPropertyValue("--traj-cursor-down").trim(),
-      trailUp: css.getPropertyValue("--traj-trail-up").trim(),
-      trailDown: css.getPropertyValue("--traj-trail-down").trim(),
+      bg: cssVars.getPropertyValue("--traj-bg").trim() || "#1a1a2a",
+      border: cssVars.getPropertyValue("--traj-border").trim() || "#2e2e45",
+      cursorUp: cssVars.getPropertyValue("--traj-cursor-up").trim() || "#c8c8c8",
+      cursorDown: cssVars.getPropertyValue("--traj-cursor-down").trim() || "#00c8ff",
+      trailUp: cssVars.getPropertyValue("--traj-trail-up").trim() || "#c8c8c8",
+      trailDown: cssVars.getPropertyValue("--traj-trail-down").trim() || "#00c8ff",
     };
 
     // ─── Constants ────────────────────────────────────────────
     const MAX_TRAIL = 500;
     const CHAR_DELAY = 84;
-
     const PHYSICS_HZ = 240;
     const msPerTick = 1000 / PHYSICS_HZ;
 
-    // ─── Layout ───────────────────────────────────────────────
-    const w = trajDiv.clientWidth || 600;
-    const h = trajDiv.clientHeight || 300;
+    // ─── LEFT PANEL dimensions ────────────────────────────────
+    // Canvas fills the left div; plot is a centered square with
+    // room below for legend + controls.
+    const lW = leftDiv.clientWidth || 300;
+    const lH = leftDiv.clientHeight || 300;
+    const pad = 12;
 
-    const layout = {
-      w,
-      h,
-      pad: 16,
+    const bottom = { legH: 20, ctrlH: 30, gap: 6 };
+    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
+    const availH = lH - pad - bottomH;
 
-      leftW: w * 0.5,
-      rightW: w * 0.5,
+    const plotSz = Math.min(lW - pad * 2, availH);
+    const plotX = pad + (lW - pad * 2 - plotSz) / 2;
+    const plotY = pad + (availH - plotSz) / 2;
 
-      bottom: {
-        legH: 20,
-        ctrlH: 34,
-        gap: 6
-      },
+    // ─── RIGHT PANEL dimensions ───────────────────────────────
+    const rW = rightDiv.clientWidth || 300;
+    const rH = rightDiv.clientHeight || 300;
 
-      plot: {
-        x: 0,
-        y: 0,
-        s: 0
-      },
+    // ─── State ────────────────────────────────────────────────
+    const trajState = { frame: 0, paused: false, playing: true, ended: false };
+    let revealDone = false;
+    let twStarted = false;
+    const trail = [];
 
-      right: {
-        x: 0,
-        w: 0
-      },
-    };
+    // =========================================================
+    // LEFT PANEL — canvas + SVG overlay
+    // =========================================================
 
-    const pad = layout.pad;
-
-    const bottomH =
-      layout.bottom.legH +
-      layout.bottom.ctrlH +
-      layout.bottom.gap * 2;
-    const availH = h - pad - bottomH;
-
-    // plot sizing (square)
-    layout.plot.s = Math.min(
-      layout.leftW - pad * 2,
-      availH
-    );
-
-    layout.plot.x = pad + (layout.leftW - pad * 2 - layout.plot.s) / 2;
-    layout.plot.y = pad + (availH - layout.plot.s) / 2;
-
-    // right panel
-    layout.right.x = layout.leftW + pad;
-    layout.right.w = layout.rightW - pad * 2;
-
-    // ─── Canvas (render layer) ────────────────────────────────
-    const canvas = d3.select(`#${targetDivId}`)
+    const canvas = d3.select(leftDiv)
       .append("canvas")
-      .attr("width", w)
-      .attr("height", h)
+      .attr("width", lW)
+      .attr("height", lH)
       .attr("class", "traj-overlay");
-
     const ctx = canvas.node().getContext("2d");
 
-    // ─── SVG (UI layer) ───────────────────────────────────────
-    const tSvg = d3.select(`#${targetDivId}`)
+    const lSvg = d3.select(leftDiv)
       .append("svg")
-      .attr("width", w)
-      .attr("height", h)
-      .attr("viewBox", `0 0 ${w} ${h}`)
+      .attr("width", lW)
+      .attr("height", lH)
+      .attr("viewBox", `0 0 ${lW} ${lH}`)
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    // ─── Scales ───────────────────────────────────────────────
-    const xExtent = d3.extent(ticks, d => d.x);
-    const yExtent = d3.extent(ticks, d => d.y);
-
+    // Scales
     const xSc = d3.scaleLinear()
-      .domain(xExtent)
-      .range([layout.plot.x + 6, layout.plot.x + layout.plot.s - 6]);
-
+      .domain(d3.extent(ticks, d => d.x))
+      .range([plotX + 6, plotX + plotSz - 6]);
     const ySc = d3.scaleLinear()
-      .domain(yExtent)
-      .range([layout.plot.y + layout.plot.s - 6, layout.plot.y + 6]);
+      .domain(d3.extent(ticks, d => d.y))
+      .range([plotY + plotSz - 6, plotY + 6]);
 
-    // ─── Cursor ───────────────────────────────────────────────
-    const cursor = tSvg.append("circle")
+    // Cursor dot
+    const cursor = lSvg.append("circle")
       .attr("r", 4)
       .attr("fill", TOKENS.cursorUp)
       .attr("opacity", 0);
 
-    const sampleText = tSvg.append("text")
-      .attr("x", layout.plot.x + layout.plot.s / 2)
-      .attr("y", layout.plot.y + layout.plot.s + 14)
-      .attr("text-anchor", "middle")
-      .attr("dominant-baseline", "hanging")
-      .attr("class", "filters-text")
-      .style("display", "none");
-
-    const legY = layout.plot.y + layout.plot.s + layout.bottom.gap;
-    const ctrlY =
-      layout.plot.y +
-      layout.plot.s +
-      layout.bottom.gap +
-      layout.bottom.legH +
-      layout.bottom.gap;
+    // ─── Controls (HTML, positioned in left div) ──────────────
+    const legY = plotY + plotSz + bottom.gap;
+    const ctrlY = legY + bottom.legH + bottom.gap;
 
     const ctrlDiv = document.createElement("div");
     ctrlDiv.className = "traj-ctrl";
-    ctrlDiv.style.left = `${layout.plot.x}px`;
+    ctrlDiv.style.left = `${plotX}px`;
     ctrlDiv.style.top = `${ctrlY}px`;
-    ctrlDiv.style.width = `${layout.plot.s}px`;
+    ctrlDiv.style.width = `${plotSz}px`;
+    leftDiv.appendChild(ctrlDiv);
 
     const playBtn = document.createElement("button");
     playBtn.textContent = "⏸";
@@ -197,31 +155,47 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     ctrlDiv.appendChild(playBtn);
     ctrlDiv.appendChild(scrubber);
     ctrlDiv.appendChild(timeLabel);
-    trajDiv.appendChild(ctrlDiv);
 
+    // ─── Trail legend (in left SVG) ───────────────────────────
     [[TOKENS.cursorUp, "Mouse up", false], [TOKENS.cursorDown, "Mouse down", true]].forEach(([col, lbl, isDown], li) => {
-      tSvg.append("line")
-        .attr("x1", layout.plot.x + li * 110).attr("y1", legY + 1)
-        .attr("x2", layout.plot.x + li * 110 + 14).attr("y2", legY + 1)
-        .attr("stroke", col).attr("stroke-width", isDown ? 2.2 : 1.5)
+      lSvg.append("line")
+        .attr("x1", plotX + li * 100).attr("y1", legY + 1)
+        .attr("x2", plotX + li * 100 + 14).attr("y2", legY + 1)
+        .attr("stroke", col)
+        .attr("stroke-width", isDown ? 2.2 : 1.5)
         .attr("stroke-dasharray", isDown ? "0" : "4,3");
-      tSvg.append("text")
-        .attr("x", layout.plot.x + li * 110 + 18).attr("y", legY + 1)
-        .attr("dominant-baseline", "middle").attr("class", "filters-text")
+      lSvg.append("text")
+        .attr("x", plotX + li * 100 + 18).attr("y", legY + 1)
+        .attr("dominant-baseline", "middle")
         .text(lbl);
     });
 
-    const iconR = Math.min(layout.right.w * 0.18, 28);
-    const iconCX = layout.right.x + iconR + 2;
-    const iconCY = layout.plot.y + iconR + 4;
+    // =========================================================
+    // RIGHT PANEL — SVG only
+    // =========================================================
 
-    const badge = tSvg.append("circle")
+    const rSvg = d3.select(rightDiv)
+      .append("svg")
+      .attr("width", rW)
+      .attr("height", rH)
+      .attr("viewBox", `0 0 ${rW} ${rH}`)
+      .attr("preserveAspectRatio", "xMinYMin meet")
+      .attr("class", "traj-overlay");
+
+    const rPad = 12;
+
+    // ─── Game badge ───────────────────────────────────────────
+    const iconR = Math.min(rW * 0.12, 24);
+    const iconCX = rPad + iconR;
+    const iconCY = rPad + iconR;
+
+    const badge = rSvg.append("circle")
       .attr("cx", iconCX).attr("cy", iconCY).attr("r", iconR)
       .attr("class", "traj-badge");
 
     let iconG = null;
     if (gameId && svgIcons[gameId]) {
-      iconG = tSvg.append("g").attr("class", "traj-icon");
+      iconG = rSvg.append("g").attr("class", "traj-icon");
       iconG.html(svgIcons[gameId]);
       const bb = iconG.node().getBBox();
       const sc = (iconR * 1.3) / Math.max(bb.width, bb.height);
@@ -230,16 +204,22 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       );
     }
 
-    tSvg.append("text")
-      .attr("x", iconCX + iconR + 8).attr("y", iconCY)
-      .attr("dominant-baseline", "middle").attr("class", "filters-text traj-label-bold")
+    // Game label + session id, to the right of badge
+    const labelX = iconCX + iconR + 8;
+
+    rSvg.append("text")
+      .attr("x", labelX).attr("y", iconCY - 5)
+      .attr("dominant-baseline", "middle")
+      .attr("class", "traj-label-bold")
       .text(gameLabel);
 
-    tSvg.append("text")
-      .attr("x", iconCX + iconR + 8).attr("y", iconCY + 14)
-      .attr("dominant-baseline", "middle").attr("class", "filters-text traj-label-sm")
+    rSvg.append("text")
+      .attr("x", labelX).attr("y", iconCY + 9)
+      .attr("dominant-baseline", "middle")
+      .attr("class", "traj-label-sm")
       .text(`#${hfIndex}`);
 
+    // ─── Stats typewriter ─────────────────────────────────────
     const statsLines = [
       `Speed:       ${pointData?.speed_mean?.toFixed(2) ?? "—"}`,
       `Efficiency:  ${pointData?.path_efficiency?.toFixed(2) ?? "—"}`,
@@ -247,27 +227,166 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
       `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
     ];
-    const lineH = 15;
-    const typeY = iconCY + iconR + 18;
-    const typeX = layout.right.x + 4;
+    const lineH = 14;
+    const typeX = rPad;
+    const typeY = iconCY + iconR + 14;
+
     const typeNodes = statsLines.map((_, li) =>
-      tSvg.append("text")
+      rSvg.append("text")
         .attr("x", typeX).attr("y", typeY + li * lineH)
-        .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono")
+        .attr("dominant-baseline", "hanging")
+        .attr("class", "traj-label-mono")
         .text("")
     );
 
-    const clusterY = typeY + statsLines.length * lineH + 8;
-    const prefix = "Behavior group: ";
-    const prefixNode = tSvg.append("text")
-      .attr("x", typeX).attr("y", clusterY)
-      .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono")
+    // ─── "Behavior group:" label (fixed, shown at reveal) ────
+    // prefix on its own line, cluster name on the next line
+    const clusterLabelY = typeY + statsLines.length * lineH + 10;
+    const clusterNameY = clusterLabelY + lineH + 2;
+
+    const prefixNode = rSvg.append("text")
+      .attr("x", typeX).attr("y", clusterLabelY)
+      .attr("dominant-baseline", "hanging")
+      .attr("class", "traj-label-mono")
       .attr("opacity", 0).text("");
-    const nameNode = tSvg.append("text")
-      .attr("x", typeX).attr("y", clusterY)
-      .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono-bold")
+
+    const nameNode = rSvg.append("text")
+      .attr("x", typeX).attr("y", clusterNameY)
+      .attr("dominant-baseline", "hanging")
+      .attr("class", "traj-label-mono-bold")
       .style("fill", clusterColor)
       .attr("opacity", 0).text("");
+
+    // ─── Replay button: right of badge, vertically centered ──
+    // Placed now (hidden) so it's in the SVG element order;
+    // faded in by showReplayButton() after reveal.
+    const replayW = 64, replayH = 18;
+    const replayX = rW - replayW;
+    const replayY = iconCY - replayH / 2; //centered with badge
+
+
+    const btnBg = rSvg.append("rect")
+      .attr("x", replayX).attr("y", replayY)
+      .attr("width", replayW).attr("height", replayH)
+      .attr("rx", 4)
+      .attr("class", "traj-replay-rect")
+      .attr("opacity", 0);
+
+    const btnTxt = rSvg.append("text")
+      .attr("x", replayX + replayW / 2).attr("y", replayY + replayH / 2)
+      .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+      .attr("class", "traj-label-sm")
+      .style("pointer-events", "none")
+      .attr("opacity", 0)
+      .text("▶ Replay");
+
+    [btnBg, btnTxt].forEach(el => el.on("click", startAnim));
+
+    // ─── Mini radar snapshot ──────────────────────────────────
+    // Sits in the lower portion of the right panel.
+    // Radius grows to fill whatever space is left below the text.
+    const radarTopY = clusterNameY + lineH + 10;
+    const radarAvailH = rH - radarTopY - rPad;
+    const radarAvailW = rW - rPad * 2;
+    const radarSnapR = Math.max(0, Math.min(radarAvailW / 2, radarAvailH / 2));
+    const radarSnapCX = rPad + radarAvailW / 2;
+    const radarSnapCY = radarTopY + radarSnapR;
+
+    const snapG = rSvg.append("g")
+      .attr("class", "traj-radar-snap");
+
+    if (radarSnapR > 16 && pointData) {
+      const nF = FEATURES.length;
+      const aSlice = (2 * Math.PI) / nF;
+
+      // Grid
+      const gridG = snapG.append("g").attr("class", "traj-radar-grid-layer");
+      [0.33, 0.66, 1].forEach(frac => {
+        gridG.append("circle")
+          .attr("cx", radarSnapCX).attr("cy", radarSnapCY)
+          .attr("r", radarSnapR * frac)
+          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+      });
+      FEATURES.forEach((_, i) => {
+        const a = i * aSlice - Math.PI / 2;
+        gridG.append("line")
+          .attr("x1", radarSnapCX).attr("y1", radarSnapCY)
+          .attr("x2", radarSnapCX + Math.cos(a) * radarSnapR)
+          .attr("y2", radarSnapCY + Math.sin(a) * radarSnapR)
+          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+      });
+
+      // Point profile (grey until reveal)
+      const ptVals = FEATURES.map(f => featureScales[f](pointData[f]));
+      const radialLine = d3.lineRadial()
+        .radius(v => v * radarSnapR)
+        .angle((_, i) => i * aSlice);
+
+      const basePoly = snapG.append("path")
+        .datum([...ptVals, ptVals[0]])
+        .attr("transform", `translate(${radarSnapCX},${radarSnapCY})`)
+        .attr("d", radialLine)
+        .attr("fill", "#888899")
+        .attr("opacity", 0.5);
+
+      // Cluster centroid dashed outline (hidden until reveal)
+      const centroid = state.clusterCentroids?.find(c => c.cluster === clusterId);
+      let clusterPoly = null;
+      if (centroid) {
+        const cVals = FEATURES.map(f => featureScales[f](centroid[f]));
+        clusterPoly = snapG.append("path")
+          .datum([...cVals, cVals[0]])
+          .attr("transform", `translate(${radarSnapCX},${radarSnapCY})`)
+          .attr("d", radialLine)
+          .attr("fill", "none")
+          .attr("stroke", clusterColor)
+          .attr("stroke-width", 1)
+          .attr("stroke-opacity", 0)
+      }
+
+      // Feature labels
+      FEATURES.forEach((f, i) => {
+        const a = i * aSlice - Math.PI / 2;
+        const lx = radarSnapCX + Math.cos(a) * (radarSnapR + 10);
+        const ly = radarSnapCY + Math.sin(a) * (radarSnapR + 10);
+        snapG.append("text")
+          .attr("x", lx).attr("y", ly)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .attr("class", "traj-label-sm")
+          .text(f);
+      });
+
+      // Expose reveal function on snapG so revealCluster can call it
+      snapG._revealRadar = function () {
+        if (clusterPoly) {
+          clusterPoly
+            .transition()
+            .duration(600)
+            .ease(d3.easeCubicOut)
+            .attr("stroke-opacity", 0.85);
+        }
+        basePoly.transition().duration(600).ease(d3.easeCubicOut)
+          //.attr("stroke", clusterColor)
+          .attr("fill", d3.color(clusterColor).copy({ opacity: 0.5 }));
+      };
+    }
+
+    // =========================================================
+    // SHARED HELPERS
+    // =========================================================
+
+    function msAt(f) {
+      const idx = ticks[f]?.sampleIndex ?? f;
+      return Math.round(idx * msPerTick);
+    }
+    function totalMs() { return msAt(ticks.length - 1); }
+
+    function syncControls() {
+      scrubber.value = String(trajState.frame);
+      const cur = msAt(Math.min(trajState.frame, ticks.length - 1));
+      timeLabel.textContent = `${cur} / ${totalMs()} ms`;
+    }
 
     function typeLines(lines, nodes, delay, onDone) {
       function typeLine(li) {
@@ -283,154 +402,127 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     function revealCluster() {
+
+      // 1. start prefix typing
       prefixNode.attr("opacity", 1);
+      const prefixText = "Behavior group: ";
       let ci = 0;
-      (function typeChar() {
-        if (ci > prefix.length) {
-          nameNode.attr("opacity", 1);
-          try { nameNode.attr("x", typeX + prefixNode.node().getBBox().width); } catch (e) { }
-          let ni = 0;
-          (function typeName() {
-            if (ni > clusterLabel.length) {
-              if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
-                .transition().duration(600).ease(d3.easeCubicOut)
-                .style("fill", clusterColor).style("stroke", clusterColor);
-              badge.transition().duration(600).ease(d3.easeCubicOut)
-                .attr("stroke", clusterColor).attr("fill", clusterColor + "22");
-              showReplayButton();
-              return;
-            }
-            nameNode.text(clusterLabel.slice(0, ni++));
-            setTimeout(typeName, CHAR_DELAY);
-          })();
+      let revealStarted = false;
+      (function typePrefix() {
+        // when prefix completes → trigger reveal ONCE
+        if (ci === prefixText.length && !revealStarted) {
+          revealStarted = true;
+          // 2. start radar + badge/icon color transition immediately
+          if (snapG._revealRadar) snapG._revealRadar();
+          if (iconG) {
+            iconG.selectAll("path, circle, rect, polygon, ellipse")
+              .transition()
+              .duration(1800)
+              .ease(d3.easeCubicOut)
+              .style("fill", clusterColor)
+              .style("stroke", clusterColor);
+          }
+          badge.transition()
+            .duration(1800)
+            .ease(d3.easeCubicOut)
+            .attr("stroke", clusterColor)
+            .attr("fill", clusterColor + "22");
+        }
+        // continue prefix typing
+        if (ci <= prefixText.length) {
+          prefixNode.text(prefixText.slice(0, ci++));
+          setTimeout(typePrefix, CHAR_DELAY);
           return;
         }
-        prefixNode.text(prefix.slice(0, ci++));
-        setTimeout(typeChar, CHAR_DELAY);
+
+        // 3. start typing cluster name AFTER prefix fully done
+        nameNode.attr("opacity", 1);
+
+        let ni = 0;
+
+        (function typeName() {
+
+          if (ni > clusterLabel.length) {
+
+            // 4. final polish (optional re-assert color consistency)
+            if (iconG) {
+              iconG.selectAll("path, circle, rect, polygon, ellipse")
+                .style("fill", clusterColor)
+                .style("stroke", clusterColor);
+            }
+
+            badge
+              .attr("stroke", clusterColor)
+              .attr("fill", clusterColor + "22");
+
+            // 5. show replay
+            showReplayButton();
+
+            return;
+          }
+
+          nameNode.text(clusterLabel.slice(0, ni++));
+          setTimeout(typeName, CHAR_DELAY);
+
+        })();
+
       })();
     }
 
     function showReplayButton() {
-      const btnY = clusterY + 22;
-      const btnW = 64, btnH = 20;
-
-      const btnBg = tSvg.append("rect")
-        .attr("x", typeX).attr("y", btnY)
-        .attr("width", btnW).attr("height", btnH)
-        .attr("rx", 4)
-        .attr("class", "traj-replay-rect")
-        .attr("opacity", 0);
-
-      const btnTxt = tSvg.append("text")
-        .attr("x", typeX + btnW / 2).attr("y", btnY + btnH / 2)
-        .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-        .attr("class", "filters-text traj-label-sm")
-        .style("pointer-events", "none")
-        .attr("opacity", 0)
-        .text("▶ Replay");
-
       btnBg.transition().duration(400).attr("opacity", 1);
       btnTxt.transition().duration(400).attr("opacity", 1);
-
-      function startAnim() {
-        if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
-        frame = 0; trail.length = 0; twStarted = false; revealDone = false;
-        paused = false;
-        playBtn.textContent = "⏸";
-        cursor.attr("opacity", 0);
-        typeNodes.forEach(n => n.text(""));
-        prefixNode.attr("opacity", 0).text("");
-        nameNode.attr("opacity", 0).text("");
-        badge
-          .attr("stroke", null)
-          .attr("fill", null);
-        if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
-          .style("fill", null).style("stroke", null);
-        ctx.clearRect(0, 0, w, h);
-        drawBackground();
-        syncControls();
-        animateMouse();
-      }
-
-      [btnBg, btnTxt].forEach(el => el.on("click", startAnim));
     }
 
-    function drawBackground() {
-      ctx.fillStyle = TOKENS.trajBg;
-      ctx.strokeStyle = TOKENS.trajBorder;
-      ctx.lineWidth = 1;
+    // =========================================================
+    // CANVAS DRAWING
+    // =========================================================
 
+    function drawBackground() {
+      ctx.fillStyle = TOKENS.bg;
+      ctx.strokeStyle = TOKENS.border;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       if (typeof ctx.roundRect === "function") {
-        ctx.roundRect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s, 4);
+        ctx.roundRect(plotX, plotY, plotSz, plotSz, 4);
       } else {
-        ctx.rect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s);
+        ctx.rect(plotX, plotY, plotSz, plotSz);
       }
-
       ctx.fill();
       ctx.stroke();
     }
 
-    function drawTrail() {
-      ctx.clearRect(0, 0, w, h);
-      drawBackground();
-
+    function drawSegment(prev, seg, i, len) {
       ctx.save();
       ctx.beginPath();
-      ctx.rect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s);
+      ctx.rect(plotX, plotY, plotSz, plotSz);
       ctx.clip();
-
-      for (let j = 1; j < trail.length; j++) {
-        const seg = trail[j];
-        const prev = trail[j - 1];
-        const alpha = 0.3 + (j / trail.length) * 0.7;
-        ctx.beginPath();
-        ctx.moveTo(prev.x, prev.y);
-        ctx.lineTo(seg.x, seg.y);
-        ctx.strokeStyle = seg.isDown ? TOKENS.trailDown : TOKENS.trailUp;
-        ctx.globalAlpha = alpha;
-        ctx.lineWidth = seg.isDown ? 2.2 : 1.5;
-        ctx.setLineDash(seg.isDown ? [] : [4, 3]);
-        ctx.stroke();
-      }
-
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(seg.x, seg.y);
+      const alpha = 0.01 + (i / len) * 0.8;
+      ctx.strokeStyle = seg.isDown ? TOKENS.trailDown : TOKENS.trailUp;
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = seg.isDown ? 2.2 : 1.5;
+      ctx.setLineDash(seg.isDown ? [] : [4, 3]);
+      ctx.stroke();
       ctx.restore();
-      ctx.globalAlpha = 1;
-      ctx.setLineDash([]);
     }
 
-    let frame = 0, twStarted = false, paused = false, revealDone = false;
-    const trail = [];
-
-    function msAt(f) {
-      const idx = ticks[f]?.sampleIndex ?? f;
-      return Math.round(idx * msPerTick);
-    }
-
-    function totalMs() {
-      return msAt(ticks.length - 1);
-    }
-
-    function syncControls() {
-      scrubber.value = String(frame);
-      const cur = msAt(Math.min(frame, ticks.length - 1));
-      const tot = totalMs();
-      timeLabel.textContent = `${cur} / ${tot} ms`;
-    }
-
+    // Full redraw for scrubbing
     function drawFrameAt(f) {
+      ctx.clearRect(0, 0, lW, lH);
+      drawBackground();
       trail.length = 0;
       const start = Math.max(0, f - MAX_TRAIL + 1);
       for (let i = start; i <= f; i++) {
         const pt = ticks[i];
-        trail.push({ x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown });
+        const seg = { x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown };
+        trail.push(seg);
+        if (trail.length > 1) drawSegment(trail[trail.length - 2], seg, trail.length - 1, trail.length);
       }
-      drawTrail();
       if (f < ticks.length) {
         const pt = ticks[f];
-        const px = xSc(pt.x), py = ySc(pt.y);
-        cursor.attr("cx", px)
-          .attr("cy", py)
+        cursor.attr("cx", xSc(pt.x)).attr("cy", ySc(pt.y))
           .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp)
           .attr("opacity", 0.9);
       }
@@ -438,66 +530,114 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     drawBackground();
 
-    function animateMouse() {
-      if (paused) return;
+    // =========================================================
+    // ANIMATION LOOP
+    // =========================================================
 
-      if (frame >= ticks.length) {
+    function animateMouse() {
+      if (!trajState.playing || trajState.paused) return;
+
+      const f = trajState.frame;
+
+      if (f >= ticks.length) {
+        trajState.playing = false;
+        trajState.ended = true;
+        _trajRafId = null;
         if (!revealDone) { revealDone = true; revealCluster(); }
         playBtn.textContent = "↺";
         return;
       }
 
-      if (!twStarted && frame > 20) {
+      if (!twStarted && f > 20) {
         twStarted = true;
         typeLines(statsLines, typeNodes, CHAR_DELAY, null);
       }
 
-      const pt = ticks[frame];
-      const px = xSc(pt.x), py = ySc(pt.y);
+      const pt = ticks[f];
+      const px = xSc(pt.x);
+      const py = ySc(pt.y);
 
-      if (frame === 0) cursor.attr("opacity", 0.9);
+      if (f === 0) cursor.attr("opacity", 0.9);
       cursor.attr("cx", px).attr("cy", py)
         .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
 
-      trail.push({ x: px, y: py, isDown: pt.isDown });
+      const seg = { x: px, y: py, isDown: pt.isDown };
+      trail.push(seg);
       if (trail.length > MAX_TRAIL) trail.shift();
 
-      drawTrail();
+      // Clear only the plot box — right panel is in a separate div/SVG
+      ctx.clearRect(plotX, plotY, plotSz, plotSz);
+      drawBackground();
+      for (let j = 1; j < trail.length; j++) {
+        drawSegment(trail[j - 1], trail[j], j, trail.length);
+      }
+
       syncControls();
-      frame++;
+      trajState.frame = f + 1;
       _trajRafId = requestAnimationFrame(animateMouse);
     }
 
+    // =========================================================
+    // RESET + REPLAY
+    // =========================================================
+
+    function startAnim() {
+      if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+
+      trajState.frame = 0;
+      trajState.paused = false;
+      trajState.playing = true;
+      trajState.ended = false;
+      revealDone = false;
+      twStarted = false;
+
+      trail.length = 0;
+      cursor.attr("opacity", 0);
+      typeNodes.forEach(n => n.text(""));
+      prefixNode.attr("opacity", 0).text("");
+      nameNode.attr("opacity", 0).text("");
+
+      // Hide replay button again
+      btnBg.attr("opacity", 0);
+      btnTxt.attr("opacity", 0);
+
+      // Reset badge
+      badge.attr("stroke", null).attr("fill", null);
+      if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
+        .style("fill", null).style("stroke", null);
+
+      ctx.clearRect(0, 0, lW, lH);
+      drawBackground();
+      scrubber.value = "0";
+      playBtn.textContent = "⏸";
+      syncControls();
+      animateMouse();
+    }
+
+    // =========================================================
+    // CONTROL EVENTS
+    // =========================================================
+
     playBtn.addEventListener("click", () => {
-      if (frame >= ticks.length) {
-        frame = 0; trail.length = 0; twStarted = false; revealDone = false;
-        typeNodes.forEach(n => n.text(""));
-        prefixNode.attr("opacity", 0).text("");
-        nameNode.attr("opacity", 0).text("");
-        badge
-          .attr("stroke", null)
-          .attr("fill", null);
-        if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
-          .style("fill", null).style("stroke", null);
-        cursor.attr("opacity", 0);
-        ctx.clearRect(0, 0, w, h);
-        drawBackground();
-        paused = false;
-        playBtn.textContent = "⏸";
-        animateMouse();
+      if (trajState.ended || trajState.frame >= ticks.length) {
+        startAnim();
         return;
       }
-      paused = !paused;
-      playBtn.textContent = paused ? "▶" : "⏸";
-      if (!paused) animateMouse();
+      trajState.paused = !trajState.paused;
+      playBtn.textContent = trajState.paused ? "▶" : "⏸";
+      if (!trajState.paused) {
+        if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+        animateMouse();
+      }
     });
 
     scrubber.addEventListener("input", () => {
       const f = parseInt(scrubber.value, 10);
-      frame = f;
-      paused = true;
+      trajState.frame = f;
+      trajState.paused = true;
+      trajState.playing = true;
+      trajState.ended = false;
       playBtn.textContent = "▶";
-      ctx.clearRect(0, 0, w, h);
       drawFrameAt(f);
       syncControls();
     });

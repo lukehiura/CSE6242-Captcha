@@ -36,7 +36,8 @@
   --radius-lg: 16px;
 
   /* Typography */
-  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-ui:   "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "Fira Code", "Consolas", ui-monospace, monospace;
 
   /* trajectory */
   --traj-bg:           #1a1a2a;
