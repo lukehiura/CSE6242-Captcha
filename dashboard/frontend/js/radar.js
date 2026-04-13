@@ -29,7 +29,7 @@ function initRadar(points) {
   // LEGEND (no extra text classes needed)
   // =========================
 
-  const legTop = H ;
+  const legTop = H;
   const legG = root.append("g").attr("class", "radar-legend");
 
   const legend = [
