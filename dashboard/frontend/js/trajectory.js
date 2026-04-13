@@ -14,16 +14,14 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const ticks = session.ticks || [];
     const gameType = session.game_type;
 
-    // ─── Root div (trajectory-plot) — clear it ────────────────
     const trajDiv = document.getElementById(targetDivId);
     if (!trajDiv) return;
     while (trajDiv.firstChild) trajDiv.removeChild(trajDiv.firstChild);
 
-    // ─── Left / Right panels ──────────────────────────────────
-    // These are the two sibling divs inside #trajectory-plot.
-    // We create them here so the whole component is self-contained
-    // (if the divs already exist from a previous render they were
-    //  cleared above along with the rest of trajDiv's children).
+    // Root uses flex for responsive left/right
+    trajDiv.style.display = "flex";
+    trajDiv.style.gap = "16px";
+
     const leftDiv = document.createElement("div");
     leftDiv.id = "traj-left";
     leftDiv.className = "traj-half";
@@ -43,7 +41,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       return;
     }
 
-    // ─── Metadata ─────────────────────────────────────────────
+    // Metadata (same as before)
     const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
     const clusterId = pointData?.cluster ?? null;
     const clusterColor = clusterId != null ? (colorMap[clusterId] || "#888") : "#888";
@@ -51,7 +49,6 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const gameId = GAME_TYPE_TO_ID[gameType] || null;
     const gameLabel = GAME_FILTERS.find(f => f.id === gameId)?.label || gameType;
 
-    // ─── CSS tokens (fallbacks keep canvas drawing safe) ─────
     const cssVars = getComputedStyle(document.documentElement);
     const TOKENS = {
       bg: cssVars.getPropertyValue("--traj-bg").trim() || "#1a1a2a",
@@ -62,46 +59,21 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       trailDown: cssVars.getPropertyValue("--traj-trail-down").trim() || "#00c8ff",
     };
 
-    // ─── Constants ────────────────────────────────────────────
     const MAX_TRAIL = 500;
     const CHAR_DELAY = 84;
     const PHYSICS_HZ = 240;
     const msPerTick = 1000 / PHYSICS_HZ;
 
-    // ─── LEFT PANEL dimensions ────────────────────────────────
-    // Canvas fills the left div; plot is a centered square with
-    // room below for legend + controls.
-    const lW = leftDiv.clientWidth || 300;
-    const lH = leftDiv.clientHeight || 300;
-    const pad = 12;
-
-    const bottom = { legH: 20, ctrlH: 30, gap: 6 };
-    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
-    const availH = lH - pad - bottomH;
-
-    const plotSz = Math.min(lW - pad * 2, availH);
-    const plotX = pad + (lW - pad * 2 - plotSz) / 2;
-    const plotY = pad + (availH - plotSz) / 2;
-
-    // ─── RIGHT PANEL dimensions ───────────────────────────────
-    const rW = rightDiv.clientWidth || 300;
-    const rH = rightDiv.clientHeight || 300;
-
-    // ─── State ────────────────────────────────────────────────
-    const trajState = { frame: 0, paused: false, playing: true, ended: false };
-    let revealDone = false;
-    let twStarted = false;
-    const trail = [];
-
-    // =========================================================
-    // LEFT PANEL — canvas + SVG overlay
-    // =========================================================
+    // ─── LEFT PANEL (canvas fills available space) ─────────────────────────────
+    const lW = leftDiv.clientWidth; //|| 520;
+    const lH = leftDiv.clientHeight;// || 520;
 
     const canvas = d3.select(leftDiv)
       .append("canvas")
       .attr("width", lW)
       .attr("height", lH)
       .attr("class", "traj-overlay");
+
     const ctx = canvas.node().getContext("2d");
 
     const lSvg = d3.select(leftDiv)
@@ -112,6 +84,20 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
+    const pad = 12;
+    const bottom = { legH: 20, ctrlH: 30, gap: 6 };
+    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
+    const availH = lH - pad - bottomH;
+
+    let plotSz = Math.min(lW - pad * 2, availH);
+    let plotX = pad + (lW - pad * 2 - plotSz) / 2;
+    let plotY = pad + (availH - plotSz) / 2;
+
+    // ─── State ────────────────────────────────────────────────
+    const trajState = { frame: 0, paused: false, playing: true, ended: false };
+    let revealDone = false;
+    let twStarted = false;
+    const trail = [];
     // Scales
     const xSc = d3.scaleLinear()
       .domain(d3.extent(ticks, d => d.x))
@@ -157,35 +143,58 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     ctrlDiv.appendChild(timeLabel);
 
     // ─── Trail legend (in left SVG) ───────────────────────────
-    [[TOKENS.cursorUp, "Mouse up", false], [TOKENS.cursorDown, "Mouse down", true]].forEach(([col, lbl, isDown], li) => {
-      lSvg.append("line")
-        .attr("x1", plotX + li * 100).attr("y1", legY + 1)
-        .attr("x2", plotX + li * 100 + 14).attr("y2", legY + 1)
-        .attr("stroke", col)
-        .attr("stroke-width", isDown ? 2.2 : 1.5)
-        .attr("stroke-dasharray", isDown ? "0" : "4,3");
-      lSvg.append("text")
-        .attr("x", plotX + li * 100 + 18).attr("y", legY + 1)
-        .attr("dominant-baseline", "middle")
-        .text(lbl);
+    // Store refs so recalcLayout can reposition them on resize.
+    const legendItems = [
+      { col: TOKENS.cursorUp, lbl: "Mouse up", isDown: false, colorClass: "traj-legend-up" },
+      { col: TOKENS.cursorDown, lbl: "Mouse down", isDown: true, colorClass: "traj-legend-down" },
+    ];
+    const legendLineNodes = [];
+    const legendTextNodes = [];
+
+    legendItems.forEach(({ lbl, isDown, colorClass }, li) => {
+      legendLineNodes.push(
+        lSvg.append("line")
+          .attr("class", `traj-legend-line ${colorClass}`)
+          .attr("stroke-width", isDown ? 2.2 : 1.5)
+          .attr("stroke-dasharray", isDown ? "0" : "4,3")
+      );
+      legendTextNodes.push(
+        lSvg.append("text")
+          .attr("class", `traj-legend-label ${colorClass}`)
+          .attr("dominant-baseline", "middle")
+          .text(lbl)
+      );
     });
 
-    // =========================================================
-    // RIGHT PANEL — SVG only
-    // =========================================================
+    function positionLegend(legYPos) {
+      legendItems.forEach(({ }, li) => {
+        const lx = plotX + li * 110;
+        legendLineNodes[li]
+          .attr("x1", lx).attr("y1", legYPos + 1)
+          .attr("x2", lx + 16).attr("y2", legYPos + 1);
+        legendTextNodes[li]
+          .attr("x", lx + 20).attr("y", legYPos + 1);
+      });
+    }
+
+    positionLegend(legY);
+
+    // ─── RIGHT PANEL — now more responsive ─────────────────────────────────────
+    const rW = rightDiv.clientWidth || 320;
+    const rH = rightDiv.clientHeight || 520;
 
     const rSvg = d3.select(rightDiv)
       .append("svg")
-      .attr("width", rW)
-      .attr("height", rH)
+      .attr("width", "100%")
+      .attr("height", "100%")
       .attr("viewBox", `0 0 ${rW} ${rH}`)
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
     const rPad = 12;
 
-    // ─── Game badge ───────────────────────────────────────────
-    const iconR = Math.min(rW * 0.12, 24);
+    // Game badge (top-leftish)
+    const iconR = Math.min(rW * 0.11, 28);
     const iconCX = rPad + iconR;
     const iconCY = rPad + iconR;
 
@@ -193,77 +202,34 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("cx", iconCX).attr("cy", iconCY).attr("r", iconR)
       .attr("class", "traj-badge");
 
+    // Icon (same)
     let iconG = null;
     if (gameId && svgIcons[gameId]) {
       iconG = rSvg.append("g").attr("class", "traj-icon");
       iconG.html(svgIcons[gameId]);
       const bb = iconG.node().getBBox();
       const sc = (iconR * 1.3) / Math.max(bb.width, bb.height);
-      iconG.attr("transform",
-        `translate(${iconCX - bb.x * sc - bb.width * sc / 2},${iconCY - bb.y * sc - bb.height * sc / 2}) scale(${sc})`
-      );
+      iconG.attr("transform", `translate(${iconCX - bb.x * sc - bb.width * sc / 2},${iconCY - bb.y * sc - bb.height * sc / 2}) scale(${sc})`);
     }
 
-    // Game label + session id, to the right of badge
-    const labelX = iconCX + iconR + 8;
-
+    // Game label + session id
+    const labelX = iconCX + iconR + 12;
     rSvg.append("text")
-      .attr("x", labelX).attr("y", iconCY - 5)
+      .attr("x", labelX).attr("y", iconCY - 6)
       .attr("dominant-baseline", "middle")
       .attr("class", "traj-label-bold")
       .text(gameLabel);
 
     rSvg.append("text")
-      .attr("x", labelX).attr("y", iconCY + 9)
+      .attr("x", labelX).attr("y", iconCY + 10)
       .attr("dominant-baseline", "middle")
       .attr("class", "traj-label-sm")
       .text(`#${hfIndex}`);
 
-    // ─── Stats typewriter ─────────────────────────────────────
-    const statsLines = [
-      `Speed:       ${pointData?.speed_mean?.toFixed(2) ?? "—"}`,
-      `Efficiency:  ${pointData?.path_efficiency?.toFixed(2) ?? "—"}`,
-      `Pause rate:  ${pointData?.pause_rate?.toFixed(2) ?? "—"}`,
-      `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
-      `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
-    ];
-    const lineH = 14;
-    const typeX = rPad;
-    const typeY = iconCY + iconR + 14;
-
-    const typeNodes = statsLines.map((_, li) =>
-      rSvg.append("text")
-        .attr("x", typeX).attr("y", typeY + li * lineH)
-        .attr("dominant-baseline", "hanging")
-        .attr("class", "traj-label-mono")
-        .text("")
-    );
-
-    // ─── "Behavior group:" label (fixed, shown at reveal) ────
-    // prefix on its own line, cluster name on the next line
-    const clusterLabelY = typeY + statsLines.length * lineH + 10;
-    const clusterNameY = clusterLabelY + lineH + 2;
-
-    const prefixNode = rSvg.append("text")
-      .attr("x", typeX).attr("y", clusterLabelY)
-      .attr("dominant-baseline", "hanging")
-      .attr("class", "traj-label-mono")
-      .attr("opacity", 0).text("");
-
-    const nameNode = rSvg.append("text")
-      .attr("x", typeX).attr("y", clusterNameY)
-      .attr("dominant-baseline", "hanging")
-      .attr("class", "traj-label-mono-bold")
-      .style("fill", clusterColor)
-      .attr("opacity", 0).text("");
-
-    // ─── Replay button: right of badge, vertically centered ──
-    // Placed now (hidden) so it's in the SVG element order;
-    // faded in by showReplayButton() after reveal.
-    const replayW = 64, replayH = 18;
-    const replayX = rW - replayW;
-    const replayY = iconCY - replayH / 2; //centered with badge
-
+    // ─── Replay button: right of badge, vertically centered with it ─────────────
+    const replayW = 72, replayH = 20;
+    const replayX = rW - replayW - rPad;
+    const replayY = replayH / 2;
 
     const btnBg = rSvg.append("rect")
       .attr("x", replayX).attr("y", replayY)
@@ -282,18 +248,59 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     [btnBg, btnTxt].forEach(el => el.on("click", startAnim));
 
-    // ─── Mini radar snapshot ──────────────────────────────────
-    // Sits in the lower portion of the right panel.
-    // Radius grows to fill whatever space is left below the text.
-    const radarTopY = clusterNameY + lineH + 10;
-    const radarAvailH = rH - radarTopY - rPad;
-    const radarAvailW = rW - rPad * 2;
-    const radarSnapR = Math.max(0, Math.min(radarAvailW / 2, radarAvailH / 2));
-    const radarSnapCX = rPad + radarAvailW / 2;
-    const radarSnapCY = radarTopY + radarSnapR;
+    // ─── Typewriter stats (starts below badge area) ───────────────────────────
+    const statsLines = [
+      `Speed:       ${pointData?.speed_mean?.toFixed(2) ?? "—"}`,
+      `Efficiency:  ${pointData?.path_efficiency?.toFixed(2) ?? "—"}`,
+      `Pause rate:  ${pointData?.pause_rate?.toFixed(2) ?? "—"}`,
+      `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
+      `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
+    ];
+    const lineH = 15;
+    const typeY = iconCY + iconR + 24;   // a bit more breathing room
 
-    const snapG = rSvg.append("g")
-      .attr("class", "traj-radar-snap");
+    // ── Split right panel into left text column and right radar column ──
+    // Text column: left rPad → ~55% of rW; radar column: remainder
+    const textColW = Math.floor(rW * 0.52);
+    const radarColX = textColW + rPad;
+    const radarColW = rW - radarColX - rPad;
+
+    const typeX = rPad;
+
+    const typeNodes = statsLines.map((_, li) =>
+      rSvg.append("text")
+        .attr("x", typeX).attr("y", typeY + li * lineH)
+        .attr("dominant-baseline", "hanging")
+        .attr("class", "traj-label-mono")
+        .text("")
+    );
+
+    // Cluster label (Behavior group:)
+    const clusterLabelY = typeY + statsLines.length * lineH + 18;
+    const clusterNameY = clusterLabelY + lineH + 4;
+
+    const prefixNode = rSvg.append("text")
+      .attr("x", typeX).attr("y", clusterLabelY)
+      .attr("dominant-baseline", "hanging")
+      .attr("class", "traj-label-mono")
+      .attr("opacity", 0).text("");
+
+    const nameNode = rSvg.append("text")
+      .attr("x", typeX).attr("y", clusterNameY)
+      .attr("dominant-baseline", "hanging")
+      .attr("class", "traj-label-mono-bold")
+      .style("fill", clusterColor)
+      .attr("opacity", 0).text("");
+
+    // ─── Radar snapshot — same top as typewriter, right column ──────────────
+    // Height available: from typeY down to bottom of panel
+    const radarBottomLimit = plotY + plotSz;  // mirrors left canvas plot bottom
+    const radarAvailH = Math.min(rH - typeY - rPad, radarBottomLimit - typeY);
+    const radarSnapR = Math.max(16, Math.min(radarColW / 2, radarAvailH / 2)) * 0.5;
+    const radarSnapCX = (radarColX + radarColW / 2);
+    const radarSnapCY = typeY + radarSnapR + 4;  // small top offset inside column
+
+    const snapG = rSvg.append("g").attr("class", "traj-radar-snap");
 
     if (radarSnapR > 16 && pointData) {
       const nF = FEATURES.length;
@@ -357,7 +364,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           .text(f);
       });
 
-      // Expose reveal function on snapG so revealCluster can call it
+      // Expose reveal
       snapG._revealRadar = function () {
         if (clusterPoly) {
           clusterPoly
@@ -370,6 +377,70 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           //.attr("stroke", clusterColor)
           .attr("fill", d3.color(clusterColor).copy({ opacity: 0.5 }));
       };
+    }
+
+    // =========================================================
+    // Resize handler — debounced, full layout recalc + redraw
+    // =========================================================
+    let _resizeTimer = null;
+
+    function recalcLayout() {
+      // ── 1. Re-measure the left panel ─────────────────────────
+      const newLW = leftDiv.clientWidth;
+      const newLH = leftDiv.clientHeight;
+      if (!newLW || !newLH) return;
+
+      // ── 2. Resize canvas & SVG to match new dimensions ───────
+      const canvasEl = canvas.node();
+      canvasEl.width = newLW;
+      canvasEl.height = newLH;
+      lSvg.attr("width", newLW)
+        .attr("height", newLH)
+        .attr("viewBox", `0 0 ${newLW} ${newLH}`);
+
+      // ── 3. Recompute layout geometry (mirrors initial setup) ──
+      const newPlotSz = Math.min(newLW - pad * 2,
+        newLH - pad - bottomH);
+      const newPlotX = pad + (newLW - pad * 2 - newPlotSz) / 2;
+      const newPlotY = pad + ((newLH - pad - bottomH) - newPlotSz) / 2;
+
+      // Mutate the closed-over variables so every downstream
+      // function (drawBackground, drawSegment, drawFrameAt …)
+      // picks up the new geometry automatically.
+      plotSz = newPlotSz;  // eslint-disable-line no-global-assign
+      plotX = newPlotX;
+      plotY = newPlotY;
+
+      // ── 4. Update D3 scales to new pixel range ────────────────
+      xSc.range([plotX + 6, plotX + plotSz - 6]);
+      ySc.range([plotY + plotSz - 6, plotY + 6]);
+
+      // ── 5. Reposition the controls overlay + legend ──────────
+      const newLegY = plotY + plotSz + bottom.gap;
+      const newCtrlY = newLegY + bottom.legH + bottom.gap;
+      ctrlDiv.style.left = `${plotX}px`;
+      ctrlDiv.style.top = `${newCtrlY}px`;
+      ctrlDiv.style.width = `${plotSz}px`;
+      positionLegend(newLegY);
+
+      // ── 6. Redraw the current frame (no animation step) ───────
+      const f = Math.min(trajState.frame, ticks.length - 1);
+      drawFrameAt(f);
+    }
+
+    function handleResize() {
+      clearTimeout(_resizeTimer);
+      _resizeTimer = setTimeout(recalcLayout, 150);
+    }
+
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup on abort / next render
+    if (_trajAbortCtrl) {
+      _trajAbortCtrl.signal.addEventListener("abort", () => {
+        clearTimeout(_resizeTimer);
+        window.removeEventListener("resize", handleResize);
+      });
     }
 
     // =========================================================
@@ -631,23 +702,46 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       }
     });
 
-    scrubber.addEventListener("input", () => {
-      const f = parseInt(scrubber.value, 10);
-      trajState.frame = f;
-      trajState.paused = true;
-      trajState.playing = true;
-      trajState.ended = false;
-      playBtn.textContent = "▶";
-      drawFrameAt(f);
-      syncControls();
+    // Track whether user is actively dragging (not just clicking)
+    let scrubWasPlaying = false;
+    let scrubDragging = false;
+
+    scrubber.addEventListener("pointerdown", () => {
+      scrubDragging = false; // reset; input event will set true if it fires during drag
+      scrubWasPlaying = trajState.playing && !trajState.paused && !trajState.ended;
     });
 
+    scrubber.addEventListener("input", () => {
+      scrubDragging = true;
+      const f = parseInt(scrubber.value, 10);
+      trajState.frame = f;
+      trajState.ended = false;
+      if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+      drawFrameAt(f);
+      syncControls();
+      // Show paused indicator only while dragging
+      if (scrubWasPlaying) playBtn.textContent = "▶";
+    });
+
+    scrubber.addEventListener("pointerup", () => {
+      if (!scrubDragging) return; // was a click, no drag — do nothing to play state
+      scrubDragging = false;
+      if (scrubWasPlaying && !trajState.ended) {
+        trajState.paused = false;
+        trajState.playing = true;
+        playBtn.textContent = "⏸";
+        animateMouse();
+      }
+    });
+
+
+    // Initial draw + start
+    drawBackground();
     animateMouse();
 
   }).catch(err => {
     if (err?.name === "AbortError") return;
     const trajDiv = document.getElementById(targetDivId);
-    if (trajDiv) trajDiv.innerHTML =
-      `<p class="traj-error">Failed to load session (${err.message || err})</p>`;
+    if (trajDiv) trajDiv.innerHTML = `<p class="traj-error">Failed to load session (${err.message || err})</p>`;
   });
 }
