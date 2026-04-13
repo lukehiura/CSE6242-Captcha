@@ -12,9 +12,9 @@ svg text {
   fill: var(--text-mid);
 }
 
-/* filters-text — legacy class used by D3, inherits from svg text global 
-.filters-text { /* intentionally empty — styles come from svg text + state modifiers  }
-*/
+/* filters-text — legacy class used by D3, inherits from svg text global */
+.filters-text { /* intentionally empty — styles come from svg text + state modifiers */ }
+
 
 /* =============================================================================
    2. TOOLTIP

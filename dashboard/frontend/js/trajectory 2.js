@@ -89,9 +89,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
     const availH = lH - pad - bottomH;
 
-    const plotSz = Math.min(lW - pad * 2, availH);
-    const plotX = pad + (lW - pad * 2 - plotSz) / 2;
-    const plotY = pad + (availH - plotSz) / 2;
+    let plotSz = Math.min(lW - pad * 2, availH);
+    let plotX = pad + (lW - pad * 2 - plotSz) / 2;
+    let plotY = pad + (availH - plotSz) / 2;
 
     // ─── State ────────────────────────────────────────────────
     const trajState = { frame: 0, paused: false, playing: true, ended: false };
@@ -350,23 +350,56 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     // =========================================================
-    // Resize handler (makes everything more responsive)
+    // Resize handler — debounced, full layout recalc + redraw
     // =========================================================
-    let resizeTimeout = null;
+    let _resizeTimer = null;
+
+    function recalcLayout() {
+      // ── 1. Re-measure the left panel ─────────────────────────
+      const newLW = leftDiv.clientWidth;
+      const newLH = leftDiv.clientHeight;
+      if (!newLW || !newLH) return;
+
+      // ── 2. Resize canvas & SVG to match new dimensions ───────
+      const canvasEl = canvas.node();
+      canvasEl.width  = newLW;
+      canvasEl.height = newLH;
+      lSvg.attr("width",   newLW)
+          .attr("height",  newLH)
+          .attr("viewBox", `0 0 ${newLW} ${newLH}`);
+
+      // ── 3. Recompute layout geometry (mirrors initial setup) ──
+      const newPlotSz = Math.min(newLW - pad * 2,
+                                 newLH - pad - bottomH);
+      const newPlotX  = pad + (newLW - pad * 2 - newPlotSz) / 2;
+      const newPlotY  = pad + ((newLH - pad - bottomH) - newPlotSz) / 2;
+
+      // Mutate the closed-over variables so every downstream
+      // function (drawBackground, drawSegment, drawFrameAt …)
+      // picks up the new geometry automatically.
+      plotSz = newPlotSz;  // eslint-disable-line no-global-assign
+      plotX  = newPlotX;
+      plotY  = newPlotY;
+
+      // ── 4. Update D3 scales to new pixel range ────────────────
+      xSc.range([plotX + 6, plotX + plotSz - 6]);
+      ySc.range([plotY + plotSz - 6, plotY + 6]);
+
+      // ── 5. Reposition the controls overlay ───────────────────
+      const newLegY  = plotY + plotSz + bottom.gap;
+      const newCtrlY = newLegY + bottom.legH + bottom.gap;
+      ctrlDiv.style.left  = `${plotX}px`;
+      ctrlDiv.style.top   = `${newCtrlY}px`;
+      ctrlDiv.style.width = `${plotSz}px`;
+
+      // ── 6. Redraw the current frame (no animation step) ───────
+      const f = Math.min(trajState.frame, ticks.length - 1);
+      drawFrameAt(f);
+    }
+
     function handleResize() {
-      if (resizeTimeout) clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        // Re-measure and redraw key elements if needed
-        // For a full re-render you could call renderMouseTrajectory again,
-        // but for smoother experience we can update SVGs/canvas sizes here.
-        const newLW = leftDiv.clientWidth;
-        const newLH = leftDiv.clientHeight;
-        if (newLW && newLH) {
-          canvas.attr("width", newLW).attr("height", newLH);
-          lSvg.attr("width", newLW).attr("height", newLH);
-          // You may want to re-compute plotSz / scales and redraw background here
-        }
-      }, 120);
+      clearTimeout(_resizeTimer);
+      _resizeTimer = setTimeout(recalcLayout, 150);
     }
 
     window.addEventListener("resize", handleResize);
@@ -374,6 +407,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // Cleanup on abort / next render
     if (_trajAbortCtrl) {
       _trajAbortCtrl.signal.addEventListener("abort", () => {
+        clearTimeout(_resizeTimer);
         window.removeEventListener("resize", handleResize);
       });
     }
