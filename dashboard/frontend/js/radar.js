@@ -5,7 +5,7 @@ function initRadar(points) {
   const W = container.node().clientWidth;
   const H = container.node().clientHeight;
 
-  const rm = { top: 28, right: 50, bottom: 96, left: 50 };
+  const rm = { top: 18, right: 28, bottom: 42, left: 28 };
   const innerW = W - rm.left - rm.right;
   const innerH = H - rm.top - rm.bottom;
 
@@ -29,7 +29,7 @@ function initRadar(points) {
   // LEGEND (no extra text classes needed)
   // =========================
 
-  const legTop = H - rm.bottom / 4;
+  const legTop = H ;
   const legG = root.append("g").attr("class", "radar-legend");
 
   const legend = [
