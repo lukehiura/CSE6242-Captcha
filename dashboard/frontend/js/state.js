@@ -10,3 +10,12 @@ const state = {
 };
 
 const committedOpacity = new Map();
+
+
+const trajState = {
+  frame: 0,
+  paused: false,
+  playing: false,
+  scrubbing: false,
+  ended: false
+};

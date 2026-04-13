@@ -1,0 +1,346 @@
+/* =============================================================================
+   viz.css — Data Visualization Styles
+   ============================================================================= */
+
+
+/* =============================================================================
+   1. GLOBAL SVG DEFAULTS
+   ============================================================================= */
+
+svg text {
+  font-family: var(--font-ui);
+  fill: var(--text-mid);
+}
+
+/* filters-text — legacy class used by D3, inherits from svg text global */
+.filters-text { /* intentionally empty — styles come from svg text + state modifiers */ }
+
+
+/* =============================================================================
+   2. TOOLTIP
+   ============================================================================= */
+
+#tooltip {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.82);
+  color: var(--text-hi);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  max-width: 260px;
+  transition: opacity 0.15s;
+}
+
+.tooltip-meta {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  margin-bottom: 4px;
+}
+
+.tooltip-cluster {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.tooltip-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  font-size: 0.8rem;
+}
+
+.tooltip-dim { opacity: 0.6; }
+
+
+/* =============================================================================
+   3. FILTER + LEGEND INTERACTION STATES
+   State classes set by JS: .is-hovered, .is-selected
+   ============================================================================= */
+
+/* Text brightens on any active state */
+.is-hovered text,
+.is-selected text {
+  fill: var(--text-hi);
+}
+
+.is-selected text { font-weight: 600; }
+
+/* Filter circles */
+.filter-item circle {
+  fill: #1a1a1a;
+  stroke: #555;
+  stroke-width: 1.5;
+  transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+}
+
+.filter-item.is-hovered circle {
+  fill: #2a2a2a;
+  stroke: var(--accent-dim);
+  stroke-width: 2.5;
+}
+
+.filter-item.is-selected circle {
+  fill: #0f1116;
+  stroke: var(--accent);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 10px var(--accent-dim));
+}
+
+/* Filter icon wrapper */
+.filter-item .icon-wrapper {
+  color: var(--text-lo);
+  opacity: 0.65;
+  transition: color 140ms ease, opacity 140ms ease;
+}
+
+.filter-item.is-hovered .icon-wrapper,
+.filter-item.is-selected .icon-wrapper {
+  opacity: 1;
+}
+
+.filter-item.is-selected .icon-wrapper { color: var(--accent); }
+.filter-item.is-hovered  .icon-wrapper { color: var(--text-hi); }
+
+/* Legend rects */
+.legend-item rect {
+  stroke: #333;
+  stroke-width: 1;
+  transition: stroke 120ms ease, stroke-width 120ms ease;
+}
+
+.legend-item.is-hovered rect { stroke: var(--accent-dim); }
+.legend-item.is-selected rect { stroke: var(--accent); stroke-width: 2; }
+
+
+/* =============================================================================
+   4. SCATTER / RADAR AXES
+   ============================================================================= */
+
+.axis line,
+.axis path {
+  stroke: var(--text-muted);
+  stroke-opacity: 0.6;
+}
+
+.axis text,
+.axis-label {
+  fill: var(--text-lo);
+  font-size: 0.75rem;
+}
+
+/* Radar grid */
+.radar-grid-ring,
+.radar-grid-spoke {
+  stroke: var(--text-muted);
+  stroke-opacity: 0.5;
+  stroke-dasharray: 2, 2;
+  fill: none;
+}
+
+/* Radar text labels */
+.radar-axis-label,
+.radar-legend-label {
+  font-size: 0.75rem;
+  fill: var(--text-lo);
+}
+
+/* Radar legend swatches */
+.radar-legend-line-swatch  { stroke: var(--text-lo); stroke-width: 2; }
+.radar-legend-diamond-swatch { fill: var(--text-lo); fill-opacity: 0.4; stroke: var(--text-lo); stroke-width: 0.5; }
+
+
+/* =============================================================================
+   5. TRAJECTORY
+   ============================================================================= */
+
+/* Overlay canvas + SVG — absolutely positioned inside #trajectory-plot */
+.traj-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* Controls row — positional left/top/width set by JS */
+.traj-ctrl {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: all;
+}
+
+/* Play/pause button */
+.traj-play-btn {
+  width: 26px;
+  height: 26px;
+  background: var(--bg-raised);
+  border: 1px solid var(--bg-border-2);
+  color: var(--text-mid);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.traj-play-btn:hover {
+  color: var(--text-hi);
+  border-color: var(--accent-dim);
+}
+
+/* Scrubber */
+.traj-scrubber {
+  flex: 1;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  min-width: 0;
+}
+
+/* Time label */
+.traj-time-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Game icon badge */
+.traj-badge {
+  fill: var(--traj-badge-bg);
+  stroke: var(--traj-badge-stroke);
+  stroke-width: 1.5;
+}
+
+/* Replay button */
+.traj-replay-rect {
+  fill: var(--traj-replay-bg);
+  stroke: var(--traj-replay-border);
+  stroke-width: 1;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+/* SVG text modifiers */
+.traj-overlay text {
+  font-family: var(--font-ui);
+  fill: var(--text-mid);
+}
+
+.traj-label-bold {
+  fill: var(--text-hi);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.traj-label-sm   { font-size: 10px; }
+
+.traj-label-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-mid);
+}
+
+.traj-label-mono-bold {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text-hi);
+}
+
+/* Error state */
+.traj-error {
+  padding: 8px;
+  color: #c66;
+}
+
+/* Mini radar snapshot (right panel of trajectory) */
+.traj-radar-snap path {
+  stroke-width: 1.5;
+  opacity: 0.85;
+}
+
+.traj-radar-grid {
+  stroke: var(--text-muted);
+  stroke-opacity: 0.35;
+  stroke-dasharray: 2, 2;
+  fill: none;
+}
+
+/* ── Trajectory split layout ──────────────────────────────── */
+/* #trajectory-plot is the flex container; left/right fill it equally */
+
+#trajectory-plot {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  min-height: 0;     /* allow shrink inside grid */
+}
+
+.traj-half {
+  position: relative;  /* contains absolutely-positioned canvas + svg */
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+/* =============================================================================
+   6. STATS CARD
+   ============================================================================= */
+
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  height: 100%;
+}
+
+.stats-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 180px;
+}
+
+.stats-cluster-pill {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1.5px solid;
+  border-radius: 20px;
+  padding: 3px 12px;
+  white-space: nowrap;
+}
+
+.stats-meta    { font-size: 0.75rem; color: var(--text-muted); padding-left: 2px; }
+.stats-metrics { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+
+.stats-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 64px;
+}
+
+.stats-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.stats-value { font-size: 1.15rem; font-weight: 700; color: var(--text-mid); line-height: 1; }
+.stats-unit  { font-size: 0.6rem; color: var(--text-muted); }
