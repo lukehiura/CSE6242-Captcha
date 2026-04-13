@@ -1,107 +1,192 @@
 let _trajAbortCtrl = null;
-let _trajRafId     = null;
+let _trajRafId = null;
 
 function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoints) {
-  if (_trajAbortCtrl) { _trajAbortCtrl.abort(); _trajAbortCtrl = null; }
-  if (_trajRafId)     { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+  // ─── Cancel any in-flight work ─────────────────────────────
+  if (_trajAbortCtrl) {
+    _trajAbortCtrl.abort();
+    _trajAbortCtrl = null;
+  }
+
+  if (_trajRafId) {
+    cancelAnimationFrame(_trajRafId);
+    _trajRafId = null;
+  }
 
   _trajAbortCtrl = new AbortController();
-  const signal   = _trajAbortCtrl.signal;
+  const { signal } = _trajAbortCtrl;
 
+  // ─── Fetch session ─────────────────────────────────────────
   d3.json(`${API_BASE}/session/${hfIndex}`, { signal }).then(session => {
     _trajAbortCtrl = null;
 
-    const ticks    = session.ticks || [];
+    const ticks = session.ticks || [];
     const gameType = session.game_type;
 
     const trajDiv = document.getElementById(targetDivId);
     if (!trajDiv) return;
-    trajDiv.innerHTML = "";
+
+    // Fast clear (better than innerHTML = "" in heavy DOM cases)
+    while (trajDiv.firstChild) trajDiv.removeChild(trajDiv.firstChild);
 
     const caption = d3.select(captionSelector);
 
     if (ticks.length === 0) {
       trajDiv.innerHTML = "<p>No tick data.</p>";
-      caption.html(`<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`);
+      caption.html(
+        `<strong>Game:</strong> ${gameType} | <strong>Session:</strong> ${hfIndex} — no ticks`
+      );
       return;
     }
 
-    const pointData    = scatterPoints.find(p => p.hf_index === hfIndex);
-    const clusterId    = pointData?.cluster ?? null;
+    // ─── Lookup metadata ──────────────────────────────────────
+    const pointData = scatterPoints.find(p => p.hf_index === hfIndex);
+
+    const clusterId = pointData?.cluster ?? null;
     const clusterColor = clusterId != null ? (colorMap[clusterId] || "#888") : "#888";
-    const clusterLabel = clusterId != null ? (CLUSTER_NAMES[clusterId] || `Cluster ${clusterId}`) : "Unknown";
-    const gameId       = GAME_TYPE_TO_ID[gameType] || null;
-    const gameLabel    = GAME_FILTERS.find(f => f.id === gameId)?.label || gameType;
+    const clusterLabel = clusterId != null
+      ? (CLUSTER_NAMES[clusterId] || `Cluster ${clusterId}`)
+      : "Unknown";
 
-    const CURSOR_UP   = "#c8c8c8";
-    const CURSOR_DOWN = "#00c8ff";
-    const MAX_TRAIL   = 500;
-    const CHAR_DELAY  = 84;
+    const gameId = GAME_TYPE_TO_ID[gameType] || null;
+    const gameLabel = GAME_FILTERS.find(f => f.id === gameId)?.label || gameType;
 
-    const totalW   = trajDiv.clientWidth  || 600;
-    const totalH   = trajDiv.clientHeight || 300;
-    const pad      = 16;
-    const legH     = 20;
-    const ctrlH    = 34;
-    const bottomH  = legH + 6 + ctrlH + 6;
-    const availH   = totalH - pad - bottomH;
-    const halfW    = totalW / 2;
-    const plotSz   = Math.min(halfW - pad * 2, availH);
-    const plotX    = pad + (halfW - pad * 2 - plotSz) / 2;
-    const plotY    = pad + (availH - plotSz) / 2;
-    const rightX   = halfW + pad;
-    const rightW   = halfW - pad * 2;
+    // ─── CSS TOKENS (single read = important) ─────────────────
+    const css = getComputedStyle(document.documentElement);
 
+    const TOKENS = {
+      bg: css.getPropertyValue("--traj-bg").trim(),
+      border: css.getPropertyValue("--traj-border").trim(),
+      cursorUp: css.getPropertyValue("--traj-cursor-up").trim(),
+      cursorDown: css.getPropertyValue("--traj-cursor-down").trim(),
+      trailUp: css.getPropertyValue("--traj-trail-up").trim(),
+      trailDown: css.getPropertyValue("--traj-trail-down").trim(),
+    };
+
+    // ─── Constants ────────────────────────────────────────────
+    const MAX_TRAIL = 500;
+    const CHAR_DELAY = 84;
+
+    const PHYSICS_HZ = 240;
+    const msPerTick = 1000 / PHYSICS_HZ;
+
+    // ─── Layout ───────────────────────────────────────────────
+    const w = trajDiv.clientWidth || 600;
+    const h = trajDiv.clientHeight || 300;
+
+    const layout = {
+      w,
+      h,
+      pad: 16,
+
+      leftW: w * 0.5,
+      rightW: w * 0.5,
+
+      bottom: {
+        legH: 20,
+        ctrlH: 34,
+        gap: 6
+      },
+
+      plot: {
+        x: 0,
+        y: 0,
+        s: 0
+      },
+
+      right: {
+        x: 0,
+        w: 0
+      },
+    };
+
+    const pad = layout.pad;
+
+    const bottomH =
+      layout.bottom.legH +
+      layout.bottom.ctrlH +
+      layout.bottom.gap * 2;
+    const availH = h - pad - bottomH;
+
+    // plot sizing (square)
+    layout.plot.s = Math.min(
+      layout.leftW - pad * 2,
+      availH
+    );
+
+    layout.plot.x = pad + (layout.leftW - pad * 2 - layout.plot.s) / 2;
+    layout.plot.y = pad + (availH - layout.plot.s) / 2;
+
+    // right panel
+    layout.right.x = layout.leftW + pad;
+    layout.right.w = layout.rightW - pad * 2;
+
+    // ─── Canvas (render layer) ────────────────────────────────
     const canvas = d3.select(`#${targetDivId}`)
       .append("canvas")
-      .attr("width",  totalW)
-      .attr("height", totalH)
+      .attr("width", w)
+      .attr("height", h)
       .attr("class", "traj-overlay");
+
     const ctx = canvas.node().getContext("2d");
 
+    // ─── SVG (UI layer) ───────────────────────────────────────
     const tSvg = d3.select(`#${targetDivId}`)
       .append("svg")
-      .attr("width",  totalW)
-      .attr("height", totalH)
-      .attr("viewBox", `0 0 ${totalW} ${totalH}`)
+      .attr("width", w)
+      .attr("height", h)
+      .attr("viewBox", `0 0 ${w} ${h}`)
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    const xSc = d3.scaleLinear().domain(d3.extent(ticks, d => d.x)).range([plotX + 6, plotX + plotSz - 6]);
-    const ySc = d3.scaleLinear().domain(d3.extent(ticks, d => d.y)).range([plotY + plotSz - 6, plotY + 6]);
+    // ─── Scales ───────────────────────────────────────────────
+    const xExtent = d3.extent(ticks, d => d.x);
+    const yExtent = d3.extent(ticks, d => d.y);
 
-    const cursor = tSvg.append("circle").attr("r", 4)
-      .attr("fill", CURSOR_UP).attr("opacity", 0);
+    const xSc = d3.scaleLinear()
+      .domain(xExtent)
+      .range([layout.plot.x + 6, layout.plot.x + layout.plot.s - 6]);
+
+    const ySc = d3.scaleLinear()
+      .domain(yExtent)
+      .range([layout.plot.y + layout.plot.s - 6, layout.plot.y + 6]);
+
+    // ─── Cursor ───────────────────────────────────────────────
+    const cursor = tSvg.append("circle")
+      .attr("r", 4)
+      .attr("fill", TOKENS.cursorUp)
+      .attr("opacity", 0);
 
     const sampleText = tSvg.append("text")
-      .attr("x", plotX + plotSz / 2)
-      .attr("y", plotY + plotSz + 14)
+      .attr("x", layout.plot.x + layout.plot.s / 2)
+      .attr("y", layout.plot.y + layout.plot.s + 14)
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "hanging")
       .attr("class", "filters-text")
       .style("display", "none");
 
-    const PHYSICS_HZ = 240;
-    const msPerTick  = 1000 / PHYSICS_HZ;
-
-    const legY    = plotY + plotSz + 6;
-    const ctrlY   = legY + legH + 6;
+    const legY = layout.plot.y + layout.plot.s + layout.bottom.gap;
+    const ctrlY =
+      layout.plot.y +
+      layout.plot.s +
+      layout.bottom.gap +
+      layout.bottom.legH +
+      layout.bottom.gap;
 
     const ctrlDiv = document.createElement("div");
     ctrlDiv.className = "traj-ctrl";
-    ctrlDiv.style.left   = `${plotX}px`;
-    ctrlDiv.style.top    = `${ctrlY}px`;
-    ctrlDiv.style.width  = `${plotSz}px`;
-    ctrlDiv.style.height = `${ctrlH}px`;
+    ctrlDiv.style.left = `${layout.plot.x}px`;
+    ctrlDiv.style.top = `${ctrlY}px`;
+    ctrlDiv.style.width = `${layout.plot.s}px`;
 
     const playBtn = document.createElement("button");
     playBtn.textContent = "⏸";
     playBtn.className = "traj-play-btn";
 
     const scrubber = document.createElement("input");
-    scrubber.type  = "range";
-    scrubber.min   = "0";
-    scrubber.max   = String(ticks.length - 1);
+    scrubber.type = "range";
+    scrubber.min = "0";
+    scrubber.max = String(ticks.length - 1);
     scrubber.value = "0";
     scrubber.className = "traj-scrubber";
 
@@ -114,21 +199,21 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     ctrlDiv.appendChild(timeLabel);
     trajDiv.appendChild(ctrlDiv);
 
-    [[CURSOR_UP, "Mouse up", false], [CURSOR_DOWN, "Mouse down", true]].forEach(([col, lbl, isDown], li) => {
+    [[TOKENS.cursorUp, "Mouse up", false], [TOKENS.cursorDown, "Mouse down", true]].forEach(([col, lbl, isDown], li) => {
       tSvg.append("line")
-        .attr("x1", plotX + li * 110).attr("y1", legY + 1)
-        .attr("x2", plotX + li * 110 + 14).attr("y2", legY + 1)
+        .attr("x1", layout.plot.x + li * 110).attr("y1", legY + 1)
+        .attr("x2", layout.plot.x + li * 110 + 14).attr("y2", legY + 1)
         .attr("stroke", col).attr("stroke-width", isDown ? 2.2 : 1.5)
         .attr("stroke-dasharray", isDown ? "0" : "4,3");
       tSvg.append("text")
-        .attr("x", plotX + li * 110 + 18).attr("y", legY + 1)
+        .attr("x", layout.plot.x + li * 110 + 18).attr("y", legY + 1)
         .attr("dominant-baseline", "middle").attr("class", "filters-text")
         .text(lbl);
     });
 
-    const iconR  = Math.min(rightW * 0.18, 28);
-    const iconCX = rightX + iconR + 2;
-    const iconCY = plotY + iconR + 4;
+    const iconR = Math.min(layout.right.w * 0.18, 28);
+    const iconCX = layout.right.x + iconR + 2;
+    const iconCY = layout.plot.y + iconR + 4;
 
     const badge = tSvg.append("circle")
       .attr("cx", iconCX).attr("cy", iconCY).attr("r", iconR)
@@ -162,9 +247,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
       `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
     ];
-    const lineH     = 15;
-    const typeY     = iconCY + iconR + 18;
-    const typeX     = rightX + 4;
+    const lineH = 15;
+    const typeY = iconCY + iconR + 18;
+    const typeX = layout.right.x + 4;
     const typeNodes = statsLines.map((_, li) =>
       tSvg.append("text")
         .attr("x", typeX).attr("y", typeY + li * lineH)
@@ -172,8 +257,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         .text("")
     );
 
-    const clusterY   = typeY + statsLines.length * lineH + 8;
-    const prefix     = "Behavior group: ";
+    const clusterY = typeY + statsLines.length * lineH + 8;
+    const prefix = "Behavior group: ";
     const prefixNode = tSvg.append("text")
       .attr("x", typeX).attr("y", clusterY)
       .attr("dominant-baseline", "hanging").attr("class", "filters-text traj-label-mono")
@@ -203,7 +288,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       (function typeChar() {
         if (ci > prefix.length) {
           nameNode.attr("opacity", 1);
-          try { nameNode.attr("x", typeX + prefixNode.node().getBBox().width); } catch (e) {}
+          try { nameNode.attr("x", typeX + prefixNode.node().getBBox().width); } catch (e) { }
           let ni = 0;
           (function typeName() {
             if (ni > clusterLabel.length) {
@@ -226,8 +311,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     function showReplayButton() {
-      const btnY  = clusterY + 22;
-      const btnW  = 64, btnH = 20;
+      const btnY = clusterY + 22;
+      const btnW = 64, btnH = 20;
 
       const btnBg = tSvg.append("rect")
         .attr("x", typeX).attr("y", btnY)
@@ -256,10 +341,12 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         typeNodes.forEach(n => n.text(""));
         prefixNode.attr("opacity", 0).text("");
         nameNode.attr("opacity", 0).text("");
-        badge.attr("stroke", "#555").attr("fill", "#1a1a1a");
+        badge
+          .attr("stroke", null)
+          .attr("fill", null);
         if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
           .style("fill", null).style("stroke", null);
-        ctx.clearRect(0, 0, totalW, totalH);
+        ctx.clearRect(0, 0, w, h);
         drawBackground();
         syncControls();
         animateMouse();
@@ -269,38 +356,40 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     function drawBackground() {
-      ctx.fillStyle = "#1a1a2a";
-      ctx.strokeStyle = "#2e2e45";
+      ctx.fillStyle = TOKENS.trajBg;
+      ctx.strokeStyle = TOKENS.trajBorder;
       ctx.lineWidth = 1;
+
       ctx.beginPath();
       if (typeof ctx.roundRect === "function") {
-        ctx.roundRect(plotX, plotY, plotSz, plotSz, 4);
+        ctx.roundRect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s, 4);
       } else {
-        ctx.rect(plotX, plotY, plotSz, plotSz);
+        ctx.rect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s);
       }
+
       ctx.fill();
       ctx.stroke();
     }
 
     function drawTrail() {
-      ctx.clearRect(0, 0, totalW, totalH);
+      ctx.clearRect(0, 0, w, h);
       drawBackground();
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(plotX, plotY, plotSz, plotSz);
+      ctx.rect(layout.plot.x, layout.plot.y, layout.plot.s, layout.plot.s);
       ctx.clip();
 
       for (let j = 1; j < trail.length; j++) {
-        const seg  = trail[j];
+        const seg = trail[j];
         const prev = trail[j - 1];
         const alpha = 0.3 + (j / trail.length) * 0.7;
         ctx.beginPath();
         ctx.moveTo(prev.x, prev.y);
         ctx.lineTo(seg.x, seg.y);
-        ctx.strokeStyle = seg.isDown ? CURSOR_DOWN : CURSOR_UP;
+        ctx.strokeStyle = seg.isDown ? TOKENS.trailDown : TOKENS.trailUp;
         ctx.globalAlpha = alpha;
-        ctx.lineWidth   = seg.isDown ? 2.2 : 1.5;
+        ctx.lineWidth = seg.isDown ? 2.2 : 1.5;
         ctx.setLineDash(seg.isDown ? [] : [4, 3]);
         ctx.stroke();
       }
@@ -323,15 +412,15 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     function syncControls() {
-      scrubber.value  = String(frame);
-      const cur       = msAt(Math.min(frame, ticks.length - 1));
-      const tot       = totalMs();
+      scrubber.value = String(frame);
+      const cur = msAt(Math.min(frame, ticks.length - 1));
+      const tot = totalMs();
       timeLabel.textContent = `${cur} / ${tot} ms`;
     }
 
     function drawFrameAt(f) {
       trail.length = 0;
-      const start  = Math.max(0, f - MAX_TRAIL + 1);
+      const start = Math.max(0, f - MAX_TRAIL + 1);
       for (let i = start; i <= f; i++) {
         const pt = ticks[i];
         trail.push({ x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown });
@@ -340,8 +429,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       if (f < ticks.length) {
         const pt = ticks[f];
         const px = xSc(pt.x), py = ySc(pt.y);
-        cursor.attr("cx", px).attr("cy", py)
-          .attr("fill", pt.isDown ? CURSOR_DOWN : CURSOR_UP)
+        cursor.attr("cx", px)
+          .attr("cy", py)
+          .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp)
           .attr("opacity", 0.9);
       }
     }
@@ -367,7 +457,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
       if (frame === 0) cursor.attr("opacity", 0.9);
       cursor.attr("cx", px).attr("cy", py)
-        .attr("fill", pt.isDown ? CURSOR_DOWN : CURSOR_UP);
+        .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
 
       trail.push({ x: px, y: py, isDown: pt.isDown });
       if (trail.length > MAX_TRAIL) trail.shift();
@@ -384,11 +474,13 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         typeNodes.forEach(n => n.text(""));
         prefixNode.attr("opacity", 0).text("");
         nameNode.attr("opacity", 0).text("");
-        badge.attr("stroke", "#555").attr("fill", "#1a1a1a");
+        badge
+          .attr("stroke", null)
+          .attr("fill", null);
         if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
           .style("fill", null).style("stroke", null);
         cursor.attr("opacity", 0);
-        ctx.clearRect(0, 0, totalW, totalH);
+        ctx.clearRect(0, 0, w, h);
         drawBackground();
         paused = false;
         playBtn.textContent = "⏸";
@@ -402,10 +494,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     scrubber.addEventListener("input", () => {
       const f = parseInt(scrubber.value, 10);
-      frame  = f;
+      frame = f;
       paused = true;
       playBtn.textContent = "▶";
-      ctx.clearRect(0, 0, totalW, totalH);
+      ctx.clearRect(0, 0, w, h);
       drawFrameAt(f);
       syncControls();
     });

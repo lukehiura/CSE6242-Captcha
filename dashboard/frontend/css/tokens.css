@@ -37,4 +37,20 @@
 
   /* Typography */
   --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /* trajectory */
+  --traj-bg:           #1a1a2a;
+  --traj-border:       var(--bg-border-2);
+
+  --traj-cursor-up:    var(--text-mid);
+  --traj-cursor-down:  var(--accent);
+
+  --traj-trail-up:     var(--text-mid);
+  --traj-trail-down:   var(--accent);
+
+  --traj-badge-bg:     var(--bg-raised);
+  --traj-badge-stroke: var(--bg-border);
+
+  --traj-replay-bg:    var(--bg-raised);
+  --traj-replay-border: var(--bg-border);
 }

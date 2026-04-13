@@ -143,8 +143,12 @@ svg text {
 }
 
 /* =============================================================================
-   TRAJECTORY
+   TRAJECTORY (UNIFIED SYSTEM)
    ============================================================================= */
+
+/* =========================
+   BASE OVERLAY LAYER
+   ========================= */
 
 .traj-overlay {
   position: absolute;
@@ -153,12 +157,28 @@ svg text {
   pointer-events: none;
 }
 
+/* =========================
+   CONTROLS (HTML UI)
+   ========================= */
+
 .traj-play-btn {
-  background: #1e1e2e;
-  border: 1px solid #444;
-  color: #e0e0e0;
   width: 26px;
   height: 26px;
+
+  background: var(--bg-raised);
+  border: 1px solid var(--bg-border);
+  color: var(--text-mid);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: all 120ms ease;
+}
+
+.traj-play-btn:hover {
+  color: var(--text-hi);
+  border-color: var(--accent-dim);
 }
 
 .traj-scrubber {
@@ -166,10 +186,60 @@ svg text {
 }
 
 .traj-time-label {
-  color: #aaa;
   font-size: 10px;
-  font-family: monospace;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
 }
+
+/* =========================
+   SVG TEXT SYSTEM
+   ========================= */
+
+.traj-overlay text {
+  font-family: var(--font-ui);
+  fill: var(--text-mid);
+  opacity: 0.95;
+}
+
+.traj-label-bold {
+  fill: var(--text-hi);
+  font-weight: 600;
+}
+
+.traj-label-mono {
+  font-family: var(--font-mono);
+  fill: var(--text-mid);
+}
+
+.traj-label-mono-bold {
+  font-family: var(--font-mono);
+  fill: var(--text-hi);
+  font-weight: 600;
+}
+
+/* =========================
+   BADGE + REPLAY ELEMENTS
+   ========================= */
+
+.traj-badge {
+  fill: var(--traj-badge-bg);
+  stroke: var(--traj-badge-stroke);
+}
+
+.traj-replay-rect {
+  fill: var(--traj-replay-bg);
+  stroke: var(--traj-replay-border);
+  rx: 4;
+}
+
+
+
+
+
+
+
+
+
 
 /* =============================================================================
    STATS
