@@ -33,11 +33,26 @@
 .cc-nav-link {
   font-size: 0.85rem;
   padding: 6px 16px;
-  border: 1px solid var(--bg-border-2);
+  border: 2px solid var(--accent);
   border-radius: var(--radius-sm);
   color: var(--text-lo);
   text-decoration: none;
 }
+
+#reset-btn {
+  font-size: 0.85rem;
+  border: 2px solid var(--text-lo);
+  border-radius: var(--radius-sm);
+  color: var(--text-lo);
+  text-decoration: none;
+  background: rgba(8,8,16,0.92);
+}
+
+.cc-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px; 
+
 
 /* BUTTON BASE */
 .btn {
