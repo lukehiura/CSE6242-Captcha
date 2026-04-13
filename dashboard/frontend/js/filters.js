@@ -86,39 +86,46 @@ function _buildFilterSvg(filterDiv, points) {
     .attr("dominant-baseline", "hanging")
     .text(d => d.label);
 
-  const _filterPreview = _debounce(updatePreview, 40);
-
   filterItems
     .on("mouseover", (event, d) => {
       state.hoveredGame = d.id;
       updateFilterAppearance();
-      _filterPreview();
+      requestHoverRender();
     })
     .on("mouseout", () => {
       state.hoveredGame = null;
       updateFilterAppearance();
-      updateVisuals();
+      requestHoverRender();
     })
     .on("click", (event, d) => {
+      const idx = GAME_FILTERS.findIndex(f => f.id === d.id);
+
+      const baseT =
+        `translate(${centerX}, ${fm.top + circleR + idx * circleR * 3.3})`;
+
+      const el = d3.select(event.currentTarget);
+
+      // 1. stop any existing transitions immediately
+      el.interrupt();
+
+      // 2. run bounce FIRST (instant feedback)
+      el
+        .transition().duration(80)
+        .attr("transform", `${baseT} scale(1.18)`)
+        .transition().duration(180)
+        .ease(d3.easeBounceOut)
+        .attr("transform", `${baseT} scale(1)`);
+
+      // 3. THEN update state + heavy work
       state.selectedGame =
         state.selectedGame === d.id ? null : d.id;
 
       updateFilterAppearance();
-      applyFilter();
 
-      if (state.selectedGame === d.id) {
-        const idx = GAME_FILTERS.findIndex(f => f.id === d.id);
-
-        const baseT =
-          `translate(${centerX}, ${fm.top + circleR + idx * circleR * 3.3})`;
-
-        d3.select(event.currentTarget)
-          .transition().duration(80)
-          .attr("transform", `${baseT} scale(1.18)`)
-          .transition().duration(180)
-          .ease(d3.easeBounceOut)
-          .attr("transform", `${baseT} scale(1)`);
-      }
+      // 4. defer heavy work one frame
+      requestAnimationFrame(() => {
+        applyFilter();
+      });
     });
   updateFilterAppearance();
 }
@@ -173,6 +180,20 @@ function applyFilter() {
 
   radarUpdate(centroids);
   scatterApplyFilter(activeClusters, activeGameTypes);
+}
+
+let hoverDirty = false;
+
+function requestHoverRender() {
+  if (hoverDirty) return;
+  hoverDirty = true;
+  requestAnimationFrame(renderHover);
+}
+
+function renderHover() {
+  hoverDirty = false;
+
+  updatePreview();
 }
 
 function resetAll() {

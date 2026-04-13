@@ -54,13 +54,10 @@ html, body {
 
 /* Individual layout placement */
 #scatter-wrapper { grid-column: 1 / span 8; grid-row: 1 / span 8; padding: 10px; }
-#radar-wrapper { grid-column: 9 / span 4; grid-row: 1 / span 4; padding: 10px; }
-#filter-wrapper { grid-column: 13 / span 4; grid-row: 1 / span 4; padding: 10px; }
+#radar-wrapper { grid-column: 9 / span 5; grid-row: 1 / span 4; padding: 10px; }
+#filter-wrapper { grid-column: 14 / span 3; grid-row: 1 / span 4; padding: 10px; }
 #trajectory-wrapper { grid-column: 9 / span 8; grid-row: 5 / span 4; padding: 10px; }
-#selected-point-info-wrapper { grid-column: 1 / span 7; grid-row: 9 / span 1; padding: 6px 10px;
-  display: flex;
-  align-items: center;
-}
+#selected-point-info-wrapper { grid-column: 1 / span 7; grid-row: 9 / span 1; padding: 6px 10px; display: flex; align-items: center;}
 
 /* Inner containers */
 #scatter-plot,

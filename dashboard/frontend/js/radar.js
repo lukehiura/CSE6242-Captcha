@@ -34,7 +34,7 @@ function initRadar(points) {
 
   const legend = [
     { type: "line", label: "Cluster avg", width: 20 },
-    { type: "diamond", label: "Hovered point preview", width: 12 }
+    { type: "diamond", label: "Point preview", width: 12 }
   ];
 
   const fontSize = 11;
@@ -62,21 +62,21 @@ function initRadar(points) {
         .attr("stroke-width", 2);
     }
 
-if (d.type === "diamond") {
-  legG.append("polygon")
-    .attr(
-      "points",
-      `${cursorX + w / 2},${legTop - 5}
+    if (d.type === "diamond") {
+      legG.append("polygon")
+        .attr(
+          "points",
+          `${cursorX + w / 2},${legTop - 5}
        ${cursorX + w},${legTop}
        ${cursorX + w / 2},${legTop + 5}
        ${cursorX},${legTop}`
-    )
-    .attr("fill", "var(--text-hi)")
-    .attr("fill-opacity", 0.6)
-    .attr("stroke", "var(--text-hi)")
-    .attr("stroke-width", 1)
-    .attr("vector-effect", "non-scaling-stroke");
-}
+        )
+        .attr("fill", "var(--text-hi)")
+        .attr("fill-opacity", 0.6)
+        .attr("stroke", "var(--text-hi)")
+        .attr("stroke-width", 1)
+        .attr("vector-effect", "non-scaling-stroke");
+    }
 
     // IMPORTANT: no radar-specific class — uses global svg text styling
     legG.append("text")

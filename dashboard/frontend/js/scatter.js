@@ -109,26 +109,33 @@ function initScatter(points, clusters) {
     .attr("x", sq + gap).attr("y", sq / 2)
     .attr("dominant-baseline", "middle");
 
-  const _legendPreview = _debounce(updatePreview, 40);
+  //const _legendPreview = _debounce(updatePreview, 40);
 
   legendItems
     .on("mouseover", (event, d) => {
       state.hoveredCluster = d.id;
       updateLegendAppearance();
-      _legendPreview();
+      requestHoverRender();
     })
     .on("mouseout", () => {
       state.hoveredCluster = null;
       updateLegendAppearance();
-      updateVisuals();
+      requestHoverRender();
     })
     .on("click", (event, d) => {
       state.selectedClusters.has(d.id)
         ? state.selectedClusters.delete(d.id)
         : state.selectedClusters.add(d.id);
-      if (state.selectedClusters.size === clusters.length) state.selectedClusters.clear();
+
+      if (state.selectedClusters.size === clusters.length) {
+        state.selectedClusters.clear();
+      }
+
       updateLegendAppearance();
-      applyFilter();
+
+      requestAnimationFrame(() => {
+        applyFilter();
+      });
     });
 
   tooltip = d3.select("body").append("div")
@@ -362,20 +369,45 @@ function scatterApplyFilter(activeClusters, activeGameTypes) {
 
 function updatePreview() {
   const effClusters = state.hoveredCluster != null
-    ? new Set([...state.selectedClusters, state.hoveredCluster]) : state.selectedClusters;
+    ? new Set([...state.selectedClusters, state.hoveredCluster])
+    : state.selectedClusters;
+
   const effGame = state.hoveredGame ?? state.selectedGame ?? null;
 
+  // scatter preview
   svg.selectAll(".point-circle")
-    .transition().duration(HOVER_IN_MS)
     .attr("opacity", d => {
       if (d.hf_index === state.selectedPoint) return 1;
+
       const cur = committedOpacity.get(d.hf_index) ?? SCATTER_UNSELECTED_OPACITY;
+
       const cMatch = effClusters.size === 0 || effClusters.has(d.cluster);
       const gMatch = effGame == null || GAME_TYPE_TO_ID[d.game_type] === effGame;
-      return (cMatch && gMatch) ? SCATTER_SELECTED_OPACITY : Math.min(cur, SCATTER_PREVIEW_OPACITY);
+
+      return (cMatch && gMatch)
+        ? SCATTER_SELECTED_OPACITY
+        : Math.min(cur, SCATTER_PREVIEW_OPACITY);
     });
 
-  radarUpdatePreview(effClusters);
+  // radar preview
+  let previewCentroids;
+
+  if (effGame == null) {
+    const key = JSON.stringify(allGameTypes.slice().sort());
+    previewCentroids = precomputedCentroids.get(key) || [];
+  } else {
+    const gt = GAME_ID_TO_TYPE[effGame];
+    const key = JSON.stringify([gt]);
+    previewCentroids = precomputedCentroids.get(key) || [];
+  }
+
+  if (effClusters.size > 0) {
+    previewCentroids = previewCentroids.filter(c =>
+      effClusters.has(c.cluster)
+    );
+  }
+
+  radarUpdate(previewCentroids);
 }
 
 function updateVisuals() {

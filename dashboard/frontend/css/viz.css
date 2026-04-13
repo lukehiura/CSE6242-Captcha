@@ -137,8 +137,9 @@ svg text {
   opacity: 0.95;
 }
 
+.radar-axis-label,
 .radar-legend-label {
-  font-size: .9rem;
+  font-size: .8rem;
 }
 
 /* =============================================================================
