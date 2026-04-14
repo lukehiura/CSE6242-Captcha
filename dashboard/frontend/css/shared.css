@@ -10,50 +10,6 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-
-/* =============================================================================
-   2. DESIGN TOKENS
-   Colors, spacing, radius, elevation, animation timing
-   ============================================================================= */
-
-:root {
-  /* Backgrounds */
-  --bg-base:      #080810;
-  --bg-surface:   #0d0d1a;
-  --bg-raised:    #12121f;
-  --bg-border:    #1e1e30;
-  --bg-border-2:  #2a2a40;
-
-  /* Accent */
-  --accent:       #00d4ff;
-  --accent-dim:   #00d4ff44;
-  --accent-hover: #33ddff;
-
-  /* Text hierarchy */
-  --text-hi:      #ffffff;
-  --text-mid:     #c8c8d8;
-  --text-lo:      #888899;
-  --text-muted:   #555566;
-
-  /* Cluster palette */
-  --cluster-0: #ff4d6d; /* warm coral red    */
-  --cluster-1: #c9d93a; /* lime yellow-green */
-  --cluster-2: #ff9f1c; /* amber orange      */
-  --cluster-3: #b388ff; /* soft violet       */
-
-  /* Layout */
-  --nav-h: 56px;
-
-  /* Border radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-
-  /* Typography */
-  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
-}
-
-
 /* =============================================================================
    3. BASE / GLOBAL
    ============================================================================= */
