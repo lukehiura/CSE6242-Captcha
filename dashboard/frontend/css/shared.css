@@ -3,83 +3,8 @@
    Single source of truth for all visual styles.
    ============================================================================= */
 
-
 /* =============================================================================
-   1. RESET
-   ============================================================================= */
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-/* =============================================================================
-   3. BASE / GLOBAL
-   ============================================================================= */
-
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background: var(--bg-base);
-  color: var(--text-mid);
-  font-family: var(--font-ui);
-  font-size: 15px;
-  line-height: 1.5;
-  overflow-x: hidden;
-}
-
-
-/* =============================================================================
-   4. NAVIGATION
-   ============================================================================= */
-
-.cc-nav {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: var(--nav-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
-  background: rgba(8, 8, 16, 0.92);
-  border-bottom: 1px solid var(--bg-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  z-index: 200;
-}
-
-.cc-nav-logo {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--text-hi);
-  letter-spacing: 0.04em;
-  text-decoration: none;
-}
-
-.cc-nav-logo .accent { color: var(--accent); }
-
-.cc-nav-section {
-  font-weight: 400;
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  margin-left: 10px;
-}
-
-.cc-nav-link {
-  font-size: 0.85rem;
-  color: var(--text-lo);
-  text-decoration: none;
-  padding: 6px 16px;
-  border: 1px solid var(--bg-border-2);
-  border-radius: var(--radius-sm);
-  transition: color 0.18s, border-color 0.18s;
-}
-
-.cc-nav-link:hover {
-  color: var(--text-hi);
-  border-color: #555;
-}
-
-/* =============================================================================
-   6. TYPOGRAPHY — SVG data-vis & UI text
+   6. TYPOGRAPHY — SVG data-vis & UI text //////// DIG INTO THIS BEFORE REMOVING
    ============================================================================= */
 
 /* Filter list labels (D3 SVG text) */
