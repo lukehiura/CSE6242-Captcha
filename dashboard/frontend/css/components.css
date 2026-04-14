@@ -2,18 +2,19 @@
    components.css — UI Elements
    ============================================================================= */
 
-/* NAV */
+/* NAVIGATION */
 .cc-nav {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: var(--nav-h);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 0 28px;
-  background: rgba(8,8,16,0.92);
+  background: rgba(8, 8, 16, 0.92);
   border-bottom: 1px solid var(--bg-border);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   z-index: 200;
 }
 
@@ -21,37 +22,32 @@
   font-size: 1.05rem;
   font-weight: 800;
   color: var(--text-hi);
+  letter-spacing: 0.04em;
   text-decoration: none;
 }
+
 .cc-nav-logo .accent { color: var(--accent); }
 
 .cc-nav-section {
-  font-size: 0.82rem;
+  font-weight: 400;
   color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-left: 10px;
 }
 
 .cc-nav-link {
   font-size: 0.85rem;
+  color: var(--text-lo);
+  text-decoration: none;
   padding: 6px 16px;
-  border: 2px solid var(--accent);
+  border: 1px solid var(--bg-border-2);
   border-radius: var(--radius-sm);
-  color: var(--text-lo);
-  text-decoration: none;
+  transition: color 0.18s, border-color 0.18s;
 }
 
-#reset-btn {
-  font-size: 0.85rem;
-  border: 2px solid var(--text-lo);
-  border-radius: var(--radius-sm);
-  color: var(--text-lo);
-  text-decoration: none;
-  background: rgba(8,8,16,0.92);
-}
-
-.cc-nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px; 
+.cc-nav-link:hover {
+  color: var(--text-hi);
+  border-color: #555;
 }
 
 /* BUTTON BASE */
@@ -225,4 +221,3 @@
 .is-hovered { transition: 120ms ease; }
 .is-selected { transition: 120ms ease; }
 .is-disabled { opacity: 0.5; pointer-events: none; }
-}
