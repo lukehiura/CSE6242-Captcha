@@ -84,7 +84,7 @@
   align-items: center;
   justify-content: flex-start;
   padding: 72px 20px 20px;
-  gap: 14px;
+  gap: 10px;
 }
 .game-header {
   display: flex;
@@ -92,22 +92,63 @@
   justify-content: space-between;
   width: 100%;
   max-width: 960px;
+  margin-bottom: 15px;
 }
 .game-title-row { font-size: 0.9rem; color: #666; }
 .game-title-row strong { color: #bbb; font-size: 1rem; }
 #game-status { font-size: 0.88rem; color: #00d4ff; font-weight: 600; }
 
-.game-canvas-wrap {
-  position: relative;
-  width: min(550px, 90vw);
-  height: min(550px, 90vw);
-  background: #000;
-  border: 1px solid #1e1e30;
-  border-radius: 12px;
-  overflow: hidden;
+.game-wrapper {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  width: min(550px, 90vw);
+  padding-top: 10px;
+
+}
+
+.game-container {
+  width: min(550px, 90vw);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 12px;
+
+}
+
+.game-instructions-banner {
+  width: 100%;
+  box-sizing: border-box;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-radius: 12px 12px 0 0; 
+  line-height: 1.4;
+  font-size: 15px;
+  margin: 0;             
+  display: flex;              
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: #00d5ff78;
+  color: #fff;
+}
+
+
+.game-container {
+  width: min(550px, 90vw);
+  display: flex;
+  flex-direction: column;  
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.game-canvas-wrap { 
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  position: relative;
+  background: #000;
+  overflow: hidden;
 }
 #game-canvas {
   display: block;
@@ -287,13 +328,21 @@
     </div>
   </div>
 
-  <div class="game-canvas-wrap" id="game-canvas-wrap">
-    <canvas id="game-canvas"></canvas>
-    <div class="game-loading" id="game-loading-overlay">
-      <div class="spinner"></div>
-      <span>Loading game…</span>
+  <!-- Adding Game Instructions-->
+  <div class="game-wrapper">
+    <div id="game-instructions" class="game-instructions-banner" style="display:none;"></div>
+    <!-- <canvas id="play-canvas" width="330" height="330"></canvas>-->
+
+    <div class="game-canvas-wrap" id="game-canvas-wrap">
+      <canvas id="game-canvas"></canvas>
+      <div class="game-loading" id="game-loading-overlay">
+        <div class="spinner"></div>
+        <span>Loading game…</span>
+      </div>
     </div>
   </div>
+
+
 
   <p class="game-hint">Move your mouse inside the game area to play. The game ends automatically when you complete the puzzle.</p>
   <div class="error-banner" id="game-error"></div>
@@ -450,6 +499,75 @@ function renderPvg(G, ctx, W, H, imageData) {
   ctx.putImageData(imageData, 0, 0);
 }
 
+//// Adding Game Instructions ////
+const GAME_INSTRUCTIONS = {
+  'sheep-herding': {
+    class: 'sheep',
+    small: 'Drag the dots into the',
+    main: '<span style="color:#86efac">Green</span> circle'
+  },
+  'thread-the-needle': {
+    class: 'needle',
+    small: 'Drag the top of the string<br>to guide the carrot into',
+    main: 'The Target' 
+  },
+  'polygon-stacking': {
+    class: 'polygon',
+    small: 'Stack and balance for',
+    main: '3 Seconds'
+  }
+};
+
+
+function showGameInstructions(gameType, targetInfo = null) {
+  const header = document.getElementById('game-instructions');
+  const info = GAME_INSTRUCTIONS[gameType];
+  if (!info) {
+    header.style.display = 'none';
+    return;
+  }
+  header.className = `game-instructions-banner ${info.class}`;
+
+  let mainText = info.main;
+  if (gameType === 'thread-the-needle' && targetInfo && targetInfo.colorName) {
+    const shapeName = targetInfo.shape.charAt(0).toUpperCase() + targetInfo.shape.slice(1);
+    mainText = `The <span style="color:${targetInfo.colorHex}">${targetInfo.colorName}</span> ${shapeName}`;
+  }
+  header.innerHTML = `
+    <div class="game-header-small">${info.small}</div>
+    <div class="game-header-main">${mainText}</div>
+  `;
+  header.style.display = 'block';
+}
+
+function getTargetInfo(G) {
+  const shapePtr = G._malloc(64);
+  const colorPtr = G._malloc(64);
+  const colorValuePtr = G._malloc(4);
+
+  G._game_get_target_info(shapePtr, colorPtr, colorValuePtr);
+
+  const shape = G.UTF8ToString(shapePtr);
+  const colorName = G.UTF8ToString(colorPtr);
+  const colorValue = G.getValue(colorValuePtr, 'i32');
+
+  const r = colorValue & 0xff;
+  const g = (colorValue >> 8) & 0xff;
+  const b = (colorValue >> 16) & 0xff;
+
+  const colorHex =
+    `#${r.toString(16).padStart(2, '0')}` +
+    `${g.toString(16).padStart(2, '0')}` +
+    `${b.toString(16).padStart(2, '0')}`;
+
+  G._free(shapePtr);
+  G._free(colorPtr);
+  G._free(colorValuePtr);
+
+  return { shape, colorName, colorHex };
+}
+
+
 const CANVAS_SIZE  = 330;
 const GRID_SIZE    = 200;
 const PHYSICS_MS   = 1000 / 240;
@@ -479,8 +597,14 @@ async function startGame(gameIdx) {
     rng.next();
     const wasmSeed = Math.floor(rng.next() * 0xffffffff);
 
-    const gameTypeEnum = GameTypeEnum[GAME_TYPES[gameIdx]];
+    const gameTypeStr = GAME_TYPES[gameIdx];
+    const gameTypeEnum = GameTypeEnum[gameTypeStr];
     G._game_init(gameTypeEnum, wasmSeed, CANVAS_SIZE, CANVAS_SIZE);
+
+
+    //// add target info + game instruction////
+    const targetInfo = getTargetInfo(G);
+    showGameInstructions(gameTypeStr, targetInfo);
 
     const canvas  = document.getElementById("game-canvas");
     canvas.width  = CANVAS_SIZE;
@@ -551,6 +675,8 @@ function stopGame() {
   const old = document.getElementById("game-canvas");
   if (old) { old.replaceWith(old.cloneNode(false)); }
   if (wasmModule) { try { wasmModule._game_cleanup(); } catch(e) {} }
+  //// hide instructions ////
+  document.getElementById('game-instructions').style.display = 'none';
 }
 
 async function loadScript(src) {
