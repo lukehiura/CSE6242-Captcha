@@ -1,15 +1,14 @@
 Promise.all([
   d3.json(`${API_BASE}/api/scatter_points.json`),
   d3.json(`${API_BASE}/api/cluster_meta.json`),
-]).then(([rawPoints, clusters]) => {
+  d3.json(`${API_BASE}/api/cluster_profiles.json`),
+]).then(([rawPoints, clusters, clusterProfiles]) => {
 
-  const points = rawPoints
-    .filter(d => !d.is_outlier)
-    .map(d => ({ ...d, duration: Math.log(d.duration) }));
+  const points = rawPoints.filter(d => !d.is_outlier);
 
   state.points = points;
 
-  initScatter(points, clusters);
+  initScatter(points, clusters, clusterProfiles);
   initRadar(points);
   initFilters(points);
 
@@ -42,10 +41,12 @@ Promise.all([
     const pt    = points.find(p => p.hf_index === hfIdx);
     if (pt) {
       state.selectedPoint = hfIdx;
+      committedOpacity.set(hfIdx, 1);
       d3.select("#selected-point-info")
         .html(buildStatsCardHTML(pt))
         .classed("tooltip-style", false)
         .style("display", "block");
+      if (typeof _placeSelectionMarker === "function") _placeSelectionMarker(pt);
       renderMouseTrajectory(hfIdx, "trajectory-plot", "#trajectory-caption", points);
       updateVisuals();
     }
