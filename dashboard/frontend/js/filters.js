@@ -56,8 +56,7 @@ function _buildFilterSvg(filterDiv, points) {
     .attr("class", "filter-item")
     .attr("transform", (d, i) =>
       `translate(${centerX}, ${fm.top + circleR + i * circleR * 3.3})`
-    )
-    .style("cursor", "pointer");
+    );
 
   filterItems.append("circle")
     .attr("r", circleR);
@@ -80,6 +79,7 @@ function _buildFilterSvg(filterDiv, points) {
     });
 
   filterItems.append("text")
+    .attr("class", "filters-text")
     .attr("x", 0)
     .attr("y", circleR * 1.2)
     .attr("text-anchor", "middle")

@@ -2,7 +2,8 @@
    components.css — UI Elements
    ============================================================================= */
 
-/* NAVIGATION */
+/* ── NAVIGATION ─────────────────────────────────────────────────────────────── */
+
 .cc-nav {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -36,35 +37,48 @@
 }
 
 .cc-nav-link {
-  font-size: 0.85rem;
+  font-size: var(--text-size-sm);
   color: var(--text-lo);
   text-decoration: none;
   padding: 6px 16px;
-  border: 1px solid var(--bg-border-2);
+  border: var(--border-subtle);
   border-radius: var(--radius-sm);
-  transition: color 0.18s, border-color 0.18s;
+  transition: var(--transition-color);
 }
 
-.cc-nav-link:hover {
+/* ── BUTTONS — shared inline-flex base ──────────────────────────────────────── */
+/*
+   All .btn-* variants share: display:inline-flex, align-items:center,
+   cursor:pointer, text-decoration:none. Unique per-variant: gap, padding,
+   background, color, font-*, border, border-radius, transition.
+*/
+
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* hover shared: text-hi + border #555 */
+.cc-nav-link:hover,
+.btn-secondary:hover,
+.btn-ghost:hover {
   color: var(--text-hi);
   border-color: #555;
 }
 
-/* BUTTON BASE */
 .btn {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
-  cursor: pointer;
-  text-decoration: none;
   border-radius: var(--radius-md);
-  transition: 0.18s;
+  transition: var(--transition-base);
 }
 
-/* Primary button */
+/* Primary */
 .btn-primary {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
   padding: 13px 36px;
   background: var(--accent);
@@ -73,10 +87,8 @@
   font-size: 0.97rem;
   border: none;
   border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+  transition: background var(--transition-base), transform 0.15s, box-shadow var(--transition-base);
   letter-spacing: 0.02em;
-  text-decoration: none;
 }
 
 .btn-primary:hover {
@@ -93,67 +105,59 @@
   box-shadow: none;
 }
 
-/* Secondary button */
+/* Secondary */
 .btn-secondary {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
   padding: 8px 18px;
   background: transparent;
   color: var(--text-lo);
-  font-size: 0.85rem;
-  border: 1px solid var(--bg-border-2);
+  font-size: var(--text-size-sm);
+  border: var(--border-subtle);
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: color 0.18s, border-color 0.18s;
-  text-decoration: none;
+  transition: var(--transition-color);
 }
 
-.btn-secondary:hover {
-  color: var(--text-hi);
-  border-color: #555;
-}
-
-/* Ghost button */
+/* Ghost */
 .btn-ghost {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
   padding: 13px 30px;
   background: transparent;
   color: var(--text-lo);
   font-size: 0.95rem;
-  border: 1px solid var(--bg-border-2);
+  border: var(--border-subtle);
   border-radius: var(--radius-md);
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.18s, border-color 0.18s;
+  transition: var(--transition-color);
 }
 
-.btn-ghost:hover {
-  color: var(--text-hi);
-  border-color: #555;
-}
+/* ── CLUSTER BADGE / PILL ────────────────────────────────────────────────────── */
+/*
+   .cluster-badge and .stats-cluster-pill are nearly identical — same shape,
+   same font treatment. Only difference: cluster-badge uses text-transform:uppercase.
+   Merged into a shared base; .stats-cluster-pill opts out of uppercase via override.
+*/
 
-/* Cluster badge */
-.cluster-badge {
+.cluster-badge,
+.stats-cluster-pill {
   display: inline-block;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border: 1.5px solid currentColor;
-  border-radius: 20px;
-  padding: 4px 16px;
+  border: var(--border-strong);
+  border-radius: var(--badge-radius);
+  padding: var(--badge-padding);
+  white-space: nowrap;
 }
 
-/* Error banner */
+.cluster-badge { text-transform: uppercase; }
+
+/* ── ERROR BANNER ────────────────────────────────────────────────────────────── */
+
 .error-banner {
   display: none;
   background: #1a0000;
   border: 1px solid #600;
   color: #f88;
-  font-size: 0.85rem;
+  font-size: var(--text-size-sm);
   padding: 12px 20px;
   border-radius: var(--radius-md);
   max-width: 640px;
@@ -161,7 +165,8 @@
   text-align: center;
 }
 
-/* Loading spinner */
+/* ── LOADING SPINNER ─────────────────────────────────────────────────────────── */
+
 .spinner {
   width: 36px;
   height: 36px;
@@ -173,11 +178,7 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-
+/* ── PANEL ───────────────────────────────────────────────────────────────────── */
 
 .panel {
   display: grid;
@@ -188,7 +189,7 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-/* shared panel header */
+.panel h3,
 .panel > h3 {
   display: flex;
   justify-content: center;
@@ -196,28 +197,19 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-hi);
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  text-decoration: none;
-  border-radius: var(--radius-md);
-  transition: 0.18s;
-}
+/* ── UTILITY CLASSES ─────────────────────────────────────────────────────────── */
 
-.text-ui { font-family: var(--font-ui); }
-
+.text-ui    { font-family: var(--font-ui); }
 .text-muted { color: var(--text-muted); }
+.text-xs    { font-size: var(--text-size-xs); }
+.text-sm    { font-size: var(--text-size-sm); }
+.text-md    { font-size: var(--text-size-md); }
+.text-lg    { font-size: var(--text-size-lg); }
 
-.text-sm { font-size: 0.85rem; }
-.text-xs { font-size: 0.75rem; }
-.text-md { font-size: 1rem; }
-.text-lg { font-size: 1.15rem; }
+.is-hovered,
+.is-selected { transition: var(--transition-fast); }
 
-.is-hovered { transition: 120ms ease; }
-.is-selected { transition: 120ms ease; }
 .is-disabled { opacity: 0.5; pointer-events: none; }

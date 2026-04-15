@@ -39,19 +39,38 @@
   --font-ui:   "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "Cascadia Code", "Fira Code", "Consolas", ui-monospace, monospace;
 
-  /* trajectory */
-  --traj-bg:           #1a1a2a;
-  --traj-border:       var(--bg-border-2);
+  /* Font sizes */
+  --text-size-xs:  0.75rem;
+  --text-size-sm:  0.85rem;
+  --text-size-md:  1rem;
+  --text-size-lg:  1.15rem;
 
-  --traj-cursor-up:    var(--text-mid);
-  --traj-cursor-down:  var(--accent);
+  /* Transitions */
+  --transition-fast:   120ms ease;
+  --transition-base:   0.18s;
+  --transition-color:  color 0.18s, border-color 0.18s;
 
-  --traj-trail-up:     var(--text-mid);
-  --traj-trail-down:   var(--accent);
+  /* Borders */
+  --border-subtle:  1px solid var(--bg-border-2);
+  --border-strong:  1.5px solid currentColor;
 
-  --traj-badge-bg:     var(--bg-raised);
-  --traj-badge-stroke: var(--bg-border);
+  /* Badge / pill shared shape */
+  --badge-radius:  20px;
+  --badge-padding: 4px 16px;
 
-  --traj-replay-bg:    var(--bg-raised);
+  /* Trajectory */
+  --traj-bg:            #1a1a2a;
+  --traj-border:        var(--bg-border-2);
+
+  --traj-cursor-up:     var(--text-mid);
+  --traj-cursor-down:   var(--accent);
+
+  --traj-trail-up:      var(--text-mid);
+  --traj-trail-down:    var(--accent);
+
+  --traj-badge-bg:      var(--bg-raised);
+  --traj-badge-stroke:  var(--bg-border);
+
+  --traj-replay-bg:     var(--bg-raised);
   --traj-replay-border: var(--bg-border);
 }
