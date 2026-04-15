@@ -9,7 +9,7 @@
 
 svg text {
   font-family: var(--font-ui);
-  /*fill: var(--text-mid); */
+  fill: var(--text-mid); 
 }
 
 /* Filter list labels (D3 SVG text) */
@@ -319,18 +319,19 @@ svg text {
 .traj-label-bold {
   fill: var(--text-hi);
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--text-size-md);
 }
 
 .traj-label-sm {
-  font-size: 10px;
+  font-size: var(--text-size-xs);
+  fill: var(--text-lo)
 }
 
 /* Mono labels used in stats and cluster name */
 .traj-label-mono,
 .traj-label-mono-bold {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-size-xs);
   fill: var(--text-mid);
 }
 
@@ -361,6 +362,7 @@ svg text {
 .traj-legend-label {
   font-family: var(--font-ui);
   fill: var(--text-mid);
+  font-size: var(--text-size-xs);
 }
 
 /* ── Trajectory split layout ──────────────────────────────── */

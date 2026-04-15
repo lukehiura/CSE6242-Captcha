@@ -85,7 +85,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("class", "traj-overlay");
 
     const pad = 12;
-    const bottom = { legH: 20, ctrlH: 30, gap: 6 };
+    const bottom = { legH: 20, ctrlH: 30, gap: 15 };
     const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
     const availH = lH - pad - bottomH;
 
@@ -114,7 +114,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     // ─── Controls (HTML, positioned in left div) ──────────────
     const legY = plotY + plotSz + bottom.gap;
-    const ctrlY = legY + bottom.legH + bottom.gap;
+    const ctrlY = legY + bottom.legH ;
 
     const ctrlDiv = document.createElement("div");
     ctrlDiv.className = "traj-ctrl";
@@ -170,10 +170,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       legendItems.forEach(({ }, li) => {
         const lx = plotX + li * 110;
         legendLineNodes[li]
-          .attr("x1", lx).attr("y1", legYPos + 1)
-          .attr("x2", lx + 16).attr("y2", legYPos + 1);
+          .attr("x1", lx).attr("y1", legYPos)
+          .attr("x2", lx + 16).attr("y2", legYPos);
         legendTextNodes[li]
-          .attr("x", lx + 20).attr("y", legYPos + 1);
+          .attr("x", lx + 20).attr("y", legYPos);
       });
     }
 
@@ -296,7 +296,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // Height available: from typeY down to bottom of panel
     const radarBottomLimit = plotY + plotSz;  // mirrors left canvas plot bottom
     const radarAvailH = Math.min(rH - typeY - rPad, radarBottomLimit - typeY);
-    const radarSnapR = Math.max(16, Math.min(radarColW / 2, radarAvailH / 2)) * 0.5;
+    const radarSnapR = Math.max(16, Math.min(radarColW / 2, radarAvailH / 2)) * 0.7;
     const radarSnapCX = (radarColX + radarColW / 2);
     const radarSnapCY = typeY + radarSnapR + 4;  // small top offset inside column
 
@@ -472,73 +472,72 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       typeLine(0);
     }
 
-    function revealCluster() {
+function revealCluster() {
 
-      // 1. start prefix typing
-      prefixNode.attr("opacity", 1);
-      const prefixText = "Behavior group: ";
-      let ci = 0;
-      let revealStarted = false;
-      (function typePrefix() {
-        // when prefix completes → trigger reveal ONCE
-        if (ci === prefixText.length && !revealStarted) {
-          revealStarted = true;
-          // 2. start radar + badge/icon color transition immediately
-          if (snapG._revealRadar) snapG._revealRadar();
-          if (iconG) {
-            iconG.selectAll("path, circle, rect, polygon, ellipse")
-              .transition()
-              .duration(1800)
-              .ease(d3.easeCubicOut)
-              .style("fill", clusterColor)
-              .style("stroke", clusterColor);
-          }
-          badge.transition()
-            .duration(1800)
-            .ease(d3.easeCubicOut)
-            .attr("stroke", clusterColor)
-            .attr("fill", clusterColor + "22");
-        }
-        // continue prefix typing
-        if (ci <= prefixText.length) {
-          prefixNode.text(prefixText.slice(0, ci++));
-          setTimeout(typePrefix, CHAR_DELAY);
-          return;
-        }
+  const prefixText = "Behavior group: ";
+  const FADE_D = 2400;
+  const PAUSE = 500;
 
-        // 3. start typing cluster name AFTER prefix fully done
-        nameNode.attr("opacity", 1);
+  // ── Reset state ───────────────────────────────
+  prefixNode.text("").attr("opacity", 1);
+  nameNode.text("").attr("opacity", 0);
 
-        let ni = 0;
+  // ── 1. TYPE PREFIX ONLY ───────────────────────
+  let i = 0;
 
-        (function typeName() {
-
-          if (ni > clusterLabel.length) {
-
-            // 4. final polish (optional re-assert color consistency)
-            if (iconG) {
-              iconG.selectAll("path, circle, rect, polygon, ellipse")
-                .style("fill", clusterColor)
-                .style("stroke", clusterColor);
-            }
-
-            badge
-              .attr("stroke", clusterColor)
-              .attr("fill", clusterColor + "22");
-
-            // 5. show replay
-            showReplayButton();
-
-            return;
-          }
-
-          nameNode.text(clusterLabel.slice(0, ni++));
-          setTimeout(typeName, CHAR_DELAY);
-
-        })();
-
-      })();
+  function typePrefix() {
+    if (i <= prefixText.length) {
+      prefixNode.text(prefixText.slice(0, i++));
+      setTimeout(typePrefix, CHAR_DELAY);
+      return;
     }
+
+    // ── 2. pause before reveal ───────────────────
+    setTimeout(revealAll, PAUSE);
+  }
+
+  function revealAll() {
+
+    // trigger radar immediately at reveal moment
+    if (snapG._revealRadar) snapG._revealRadar();
+
+    // icon + badge fade together
+    if (iconG) {
+      iconG.selectAll("path, circle, rect, polygon, ellipse")
+        .transition()
+        .duration(FADE_D)
+        .ease(d3.easeCubicOut)
+        .style("fill", clusterColor)
+        .style("stroke", clusterColor);
+    }
+
+    badge
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("stroke", clusterColor)
+      .attr("fill", clusterColor + "22");
+
+    // fade in BOTH text elements together
+    prefixNode
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("opacity", 1);
+
+    nameNode
+      .text(clusterLabel)
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("opacity", 1);
+
+    // show replay after everything settles
+    setTimeout(showReplayButton, FADE_D + 500);
+  }
+
+  typePrefix();
+}
 
     function showReplayButton() {
       btnBg.transition().duration(400).attr("opacity", 1);
@@ -652,38 +651,63 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // RESET + REPLAY
     // =========================================================
 
-    function startAnim() {
-      if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+function startAnim() {
+  if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
 
-      trajState.frame = 0;
-      trajState.paused = false;
-      trajState.playing = true;
-      trajState.ended = false;
-      revealDone = false;
-      twStarted = false;
+  trajState.frame = 0;
+  trajState.paused = false;
+  trajState.playing = true;
+  trajState.ended = false;
+  revealDone = false;
+  twStarted = false;
 
-      trail.length = 0;
-      cursor.attr("opacity", 0);
-      typeNodes.forEach(n => n.text(""));
-      prefixNode.attr("opacity", 0).text("");
-      nameNode.attr("opacity", 0).text("");
+  trail.length = 0;
+  cursor.attr("opacity", 0);
 
-      // Hide replay button again
-      btnBg.attr("opacity", 0);
-      btnTxt.attr("opacity", 0);
+  typeNodes.forEach(n => n.text(""));
 
-      // Reset badge
-      badge.attr("stroke", null).attr("fill", null);
-      if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
-        .style("fill", null).style("stroke", null);
+  // ── RESET CLUSTER TEXT ─────────────────────────────
+  prefixNode
+    .text("")
+    .attr("opacity", 0);
 
-      ctx.clearRect(0, 0, lW, lH);
-      drawBackground();
-      scrubber.value = "0";
-      playBtn.textContent = "⏸";
-      syncControls();
-      animateMouse();
-    }
+  nameNode
+    .text("")
+    .attr("opacity", 0);
+
+  // ── RESET RADAR VISUAL STATE ───────────────────────
+  if (snapG._resetRadar) snapG._resetRadar?.();
+
+  // fallback if no reset function exists
+  if (snapG.selectAll) {
+    snapG.selectAll("path")
+      .attr("stroke-opacity", 0.5)
+      .attr("fill", "var(--text-lo)");
+  }
+
+  // ── RESET ICON + BADGE ─────────────────────────────
+  badge
+    .attr("stroke", null)
+    .attr("fill", null);
+
+  if (iconG) {
+    iconG.selectAll("path, circle, rect, polygon, ellipse")
+      .style("fill", null)
+      .style("stroke", null);
+  }
+
+  // ── HIDE REPLAY BUTTON ─────────────────────────────
+  btnBg.attr("opacity", 0);
+  btnTxt.attr("opacity", 0);
+
+  ctx.clearRect(0, 0, lW, lH);
+  drawBackground();
+
+  scrubber.value = "0";
+  playBtn.textContent = "⏸";
+  syncControls();
+  animateMouse();
+}
 
     // =========================================================
     // CONTROL EVENTS

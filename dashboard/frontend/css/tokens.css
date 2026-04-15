@@ -44,6 +44,7 @@
   --text-size-sm:  0.85rem;
   --text-size-md:  1rem;
   --text-size-lg:  1.15rem;
+  --text-size-xl:  1.25rem;
 
   /* Transitions */
   --transition-fast:   120ms ease;
