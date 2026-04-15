@@ -317,7 +317,7 @@ svg text {
 
 /* Text label variants */
 .traj-label-bold {
-  fill: var(--text-hi);
+  fill: var(--text-mid);
   font-weight: 600;
   font-size: var(--text-size-md);
 }
@@ -332,12 +332,12 @@ svg text {
 .traj-label-mono-bold {
   font-family: var(--font-mono);
   font-size: var(--text-size-xs);
-  fill: var(--text-mid);
+  fill: var(--text-lo);
 }
 
 .traj-label-mono-bold {
   font-weight: 600;
-  fill: var(--text-hi);
+  fill: var(--text-lo);
 }
 
 /* Error state */
