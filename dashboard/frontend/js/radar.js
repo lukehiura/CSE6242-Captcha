@@ -116,7 +116,7 @@ function initRadar(points) {
       .attr("text-anchor", "middle")
       .attr("alignment-baseline", "middle")
       .attr("class", "radar-axis-label")
-      .text(f);
+      .text(typeof RADAR_LABELS !== "undefined" && RADAR_LABELS[f] ? RADAR_LABELS[f] : f);
   });
 
   // =========================

@@ -1,7 +1,13 @@
 let _trajAbortCtrl = null;
 let _trajRafId = null;
+/** @type {((this: Window, ev: UIEvent) => void) | null} */
+let _trajResizeHandler = null;
 
 function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoints) {
+  if (_trajResizeHandler) {
+    window.removeEventListener("resize", _trajResizeHandler);
+    _trajResizeHandler = null;
+  }
   if (_trajAbortCtrl) { _trajAbortCtrl.abort(); _trajAbortCtrl = null; }
   if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
 
@@ -253,7 +259,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       `Speed:       ${pointData?.speed_mean?.toFixed(2) ?? "—"}`,
       `Efficiency:  ${pointData?.path_efficiency?.toFixed(2) ?? "—"}`,
       `Pause rate:  ${pointData?.pause_rate?.toFixed(2) ?? "—"}`,
-      `Duration:    ${pointData?.duration?.toFixed(2) ?? "—"}`,
+      `Duration:    ${
+        pointData?.duration != null ? String(Math.round(pointData.duration)) : "—"
+      }`,
       `Anomaly:     ${pointData?.anomaly_score?.toFixed(2) ?? "—"}`,
     ];
     const lineH = 15;
@@ -434,14 +442,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     }
 
     window.addEventListener("resize", handleResize);
-
-    // Cleanup on abort / next render
-    if (_trajAbortCtrl) {
-      _trajAbortCtrl.signal.addEventListener("abort", () => {
-        clearTimeout(_resizeTimer);
-        window.removeEventListener("resize", handleResize);
-      });
-    }
+    _trajResizeHandler = handleResize;
 
     // =========================================================
     // SHARED HELPERS
@@ -740,6 +741,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     animateMouse();
 
   }).catch(err => {
+    if (_trajResizeHandler) {
+      window.removeEventListener("resize", _trajResizeHandler);
+      _trajResizeHandler = null;
+    }
     if (err?.name === "AbortError") return;
     const trajDiv = document.getElementById(targetDivId);
     if (trajDiv) trajDiv.innerHTML = `<p class="traj-error">Failed to load session (${err.message || err})</p>`;

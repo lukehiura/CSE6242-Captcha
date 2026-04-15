@@ -3,7 +3,14 @@ const API_BASE =
     ? window.DASHBOARD_API_BASE
     : "";
 
-const FEATURES = ["speed_mean", "path_efficiency", "pause_rate", "duration"];
+const FEATURES = [
+  "speed_mean",
+  "path_efficiency",
+  "pause_rate",
+  "duration",
+  "path_length",
+  "speed_std",
+];
 
 const CLUSTER_NAMES = {
   0: "Fast-Balanced-Fluid",
@@ -12,12 +19,11 @@ const CLUSTER_NAMES = {
   3: "Moderate-Circuitous-Hesitant",
 };
 
-// Avoiding blue because we introduced blue as a neutral color
 const CLUSTER_COLORS = [
-  "#ff4d6d",
-  "#2ecc71",
-  "#9b5de5",
-  "#f4a261"
+  "#f77189",
+  "#97a431",
+  "#36ada4",
+  "#a48cf4",
 ];
 
 const GAME_FILTERS = [
@@ -48,3 +54,12 @@ const HOVER_OUT_MS = 220;
 const TRANSITION_EASE = d3.easeCubicOut;
 
 const MAX_HOVER_DIST = 15 * 15; // squared distance
+
+const RADAR_LABELS = {
+  speed_mean: "speed",
+  path_efficiency: "eff",
+  pause_rate: "pause",
+  duration: "dur",
+  path_length: "len",
+  speed_std: "σ spd",
+};
