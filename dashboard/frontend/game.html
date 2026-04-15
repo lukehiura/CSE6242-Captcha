@@ -744,14 +744,20 @@ async function finishGame(gameIdx, playSeed) {
   const computed = computeFeatures(JsonSession);
   console.log("[game] computed features:", computed);
 
+  // Build raw-tick payload for the RF classifier path.
+  const rawTicks = (JsonSession.tickInputs || []).map(t => ({
+    x: t.x, y: t.y, isDown: t.isDown, sampleIndex: t.sampleIndex,
+  }));
+
   const sessionFeatures = {
+    ticks:           rawTicks,
+    duration:        computed.duration,
+    game_type:       GAME_TYPES[gameIdx],
+    puzzle_seed:     playSeed,
     speed_mean:      computed.speed_mean,
     path_efficiency: computed.path_efficiency,
     pause_rate:      computed.pause_rate,
-    duration:        parseFloat(Math.log(Math.max(computed.duration, 1)).toFixed(4)),
     duration_ms:     computed.duration,
-    game_type:       GAME_TYPES[gameIdx],
-    puzzle_seed:     playSeed,
   };
 
   try { G._game_cleanup(); } catch(e) {}

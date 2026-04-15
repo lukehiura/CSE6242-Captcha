@@ -8,9 +8,9 @@ This repository studies mouse/touch trajectories from CAPTCHA-style mini-games: 
 
 ## Key features
 
-- **`notebook/CaptchaSolve.ipynb`** — End-to-end analysis: feature extraction (six trajectory metrics), z-scoring within game type, PCA, K-Means (with a composite rule for choosing **K** documented in the notebook), comparison with GMM/DBSCAN in diagnostics, figures under `figures/`, and export of `dashboard/data/*.json`.
-- **Flask app (`dashboard/backend/app.py`)** — Serves static files from `dashboard/frontend/`, JSON under `/api/`, raw session ticks via `/session/<hf_index>` (loads the HF dataset on first use), and **POST `/api/classify`** (nearest cluster by Euclidean distance to centroids built from non-outlier rows in `scatter_points.json`, optional `game_type` filter).
-- **Play UI (`/` → `game.html`)** — Loads `game.js` (Emscripten bundle), runs three game modes (`sheep-herding`, `thread-the-needle`, `polygon-stacking`), records input, computes four summary stats client-side, calls `/api/classify`, then links to the dashboard with query params.
+- **`notebook/CaptchaSolve.ipynb`** — End-to-end analysis: feature extraction (six trajectory metrics), z-scoring within game type, PCA, K-Means, Random Forest classifier (97% accuracy, macro F1 0.97), figures under `figures/`, and export of `dashboard/data/*.json` + `model.pkl`.
+- **Flask app (`dashboard/backend/app.py`)** — Serves static files from `dashboard/frontend/`, JSON under `/api/`, raw session ticks via `/session/<hf_index>`, and **POST `/api/classify`**. When `model.pkl` is present the endpoint runs the full RF pipeline (downsample → feature extraction → z-score → RF predict → PCA projection → anomaly percentile). Falls back to centroid-distance approximation if the model file is missing.
+- **Play UI (`/` → `game.html`)** — Loads `game.js` (Emscripten bundle), runs three game modes (`sheep-herding`, `thread-the-needle`, `polygon-stacking`), records raw ticks, sends them to `/api/classify` for RF classification, then links to the dashboard with query params.
 - **Dashboard (`/dashboard` → `index.html`)** — D3.js: PC1 vs PC2 scatter, game-type filter panel, radar view (cluster mean vs selected point using `FEATURES` in `js/config.js`), animated trajectory from `/session/<id>`, deep-link support via `?cluster=`, `?point=`, `?game=`.
 
 ## Installation
@@ -42,15 +42,16 @@ uv run python -m ipykernel install --user --name cse6242 --display-name "CSE6242
 uv run jupyter notebook notebook/CaptchaSolve.ipynb
 ```
 
-Run the notebook through the **export** section. It writes:
+Run the notebook through the **export** section (Step 9), then run the **model export cell (Step 10)**. The full set of outputs:
 
 | File | Role |
 |------|------|
 | `dashboard/data/scatter_points.json` | Per-session `hf_index`, `pca_x` / `pca_y`, `cluster`, features, `is_outlier`, etc. |
 | `dashboard/data/cluster_meta.json` | Cluster `id`, `name`, `size`, `color` for the dashboard legend |
-| `dashboard/data/cluster_profiles.json` | Per-cluster feature means plus `_norm` columns (notebook export) |
+| `dashboard/data/cluster_profiles.json` | Per-cluster feature means plus `_norm` columns for radar charts |
+| `dashboard/data/model.pkl` | RF + PCA + K-Means + z-score params — loaded by `/api/classify` |
 
-The Flask route **`/api/cluster_profiles.json`** serves this file, but the current dashboard entry script **`js/dashboard.js` only fetches `scatter_points.json` and `cluster_meta.json`** — not `cluster_profiles.json`.
+**`model.pkl` is required for the RF classifier path.** Without it, `/api/classify` falls back to centroid-distance matching and logs a warning at startup. The `/health` endpoint reports which mode is active: `"classifier": "rf"` or `"classifier": "centroid_fallback"`.
 
 ### 2. Run the web server
 
@@ -85,7 +86,21 @@ Default listen address: `http://0.0.0.0:5001/`.
 http://127.0.0.1:5001/dashboard?cluster=0&point=12345&game=sheep-herding
 ```
 
-**Classify API example:**
+**Classify API — RF path** (send raw ticks + duration in milliseconds):
+
+```bash
+curl -s -X POST http://127.0.0.1:5001/api/classify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticks": [{"x":10,"y":10,"isDown":false,"sampleIndex":0}, ...],
+    "duration": 5200,
+    "game_type": "sheep-herding"
+  }'
+```
+
+Response includes `cluster`, `cluster_name`, `probabilities` (per-cluster RF confidence), `features_raw`, `features_z`, `pca_coords`, `anomaly_pct`, and `exemplars`.
+
+**Classify API — centroid fallback** (pre-computed scalar features, used when `model.pkl` is absent):
 
 ```bash
 curl -s -X POST http://127.0.0.1:5001/api/classify \
@@ -118,7 +133,7 @@ CSE6242-Captcha/
 │   └── CaptchaSolve.ipynb  # analysis, figures, JSON export
 ├── figures/                # plots written by the notebook (path configured in notebook)
 └── dashboard/
-    ├── data/               # exported JSON (may be gitignored or committed)
+    ├── data/               # exported JSON + model.pkl (may be gitignored or committed)
     ├── backend/
     │   └── app.py          # Flask application
     └── frontend/
@@ -131,4 +146,4 @@ CSE6242-Captcha/
 
 ## Contributing
 
-Changes that alter export schemas (`scatter_points.json`, `cluster_meta.json`, `cluster_profiles.json`) should stay consistent with `dashboard/backend/app.py` and the frontend parsers in `dashboard/frontend/js/`. Re-run the notebook export and smoke-test `/`, `/dashboard`, `/api/classify`, and `/session/0` after substantive changes.
+Changes that alter export schemas (`scatter_points.json`, `cluster_meta.json`, `cluster_profiles.json`) or the model bundle (`model.pkl`) should stay consistent with `dashboard/backend/app.py` and the frontend parsers in `dashboard/frontend/js/`. Re-run **both** notebook export cells (Step 9 and Step 10), restart Flask, and smoke-test `/`, `/dashboard`, `/api/classify`, and `/session/0` after substantive changes.
