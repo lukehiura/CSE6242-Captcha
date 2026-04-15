@@ -307,12 +307,12 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       const aSlice = (2 * Math.PI) / nF;
 
       // Grid
-      const gridG = snapG.append("g").attr("class", "traj-radar-grid-layer");
+      const gridG = snapG.append("g");
       [0.33, 0.66, 1].forEach(frac => {
         gridG.append("circle")
           .attr("cx", radarSnapCX).attr("cy", radarSnapCY)
           .attr("r", radarSnapR * frac)
-          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+          .attr("class", "traj-radar-grid");
       });
       FEATURES.forEach((_, i) => {
         const a = i * aSlice - Math.PI / 2;
@@ -320,7 +320,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           .attr("x1", radarSnapCX).attr("y1", radarSnapCY)
           .attr("x2", radarSnapCX + Math.cos(a) * radarSnapR)
           .attr("y2", radarSnapCY + Math.sin(a) * radarSnapR)
-          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+          .attr("class", "traj-radar-grid");
       });
 
       // Point profile (grey until reveal)
@@ -333,7 +333,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         .datum([...ptVals, ptVals[0]])
         .attr("transform", `translate(${radarSnapCX},${radarSnapCY})`)
         .attr("d", radialLine)
-        .attr("fill", "#888899")
+        .attr("fill", "var(--text-lo)")
         .attr("opacity", 0.5);
 
       // Cluster centroid dashed outline (hidden until reveal)
@@ -360,7 +360,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           .attr("x", lx).attr("y", ly)
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "middle")
-          .attr("class", "traj-label-sm")
+          .attr("class", "radar-axis-label")
           .text(f);
       });
 

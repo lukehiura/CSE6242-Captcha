@@ -9,7 +9,7 @@
 
 svg text {
   font-family: var(--font-ui);
-  fill: var(--text-mid);
+  /*fill: var(--text-mid); */
 }
 
 /* Filter list labels (D3 SVG text) */
@@ -206,9 +206,10 @@ svg text {
 
 /* Radar grid */
 .radar-grid-ring,
-.radar-grid-spoke {
+.radar-grid-spoke,
+.traj-radar-grid {
   stroke: var(--text-muted);
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.5; 
   stroke-dasharray: 2, 2;
   fill: none;
 }
@@ -314,12 +315,7 @@ svg text {
   pointer-events: all;
 }
 
-/* SVG text modifiers */
-.traj-overlay text {
-  font-family: var(--font-ui);
-  fill: var(--text-mid);
-}
-
+/* Text label variants */
 .traj-label-bold {
   fill: var(--text-hi);
   font-weight: 600;
@@ -330,7 +326,7 @@ svg text {
   font-size: 10px;
 }
 
-/* Merged: both mono labels share font + size; bold adds weight + text-hi */
+/* Mono labels used in stats and cluster name */
 .traj-label-mono,
 .traj-label-mono-bold {
   font-family: var(--font-mono);
@@ -349,31 +345,23 @@ svg text {
   color: #c66;
 }
 
-/* Mini radar snapshot (right panel of trajectory) */
-.traj-radar-snap path {
-  stroke-width: 1.5;
-  opacity: 0.85;
-}
-
-.traj-radar-grid {
-  stroke: var(--text-muted);
-  stroke-opacity: 0.35;
-  stroke-dasharray: 2, 2;
-  fill: none;
-}
-
-/* Legend lines */
-.trajectory-legend line {
+/* Trajectory legend */
+.traj-legend-line {
   stroke-linecap: round;
 }
 
-/* Legend Text */
-.trajectory-legend text {
+.traj-legend-line.traj-legend-up {
+  stroke: var(--traj-cursor-up);
+}
+
+.traj-legend-line.traj-legend-down {
+  stroke: var(--traj-cursor-down);
+}
+
+.traj-legend-label {
   font-family: var(--font-ui);
   fill: var(--text-mid);
 }
-
-
 
 /* ── Trajectory split layout ──────────────────────────────── */
 
