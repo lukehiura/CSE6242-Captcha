@@ -84,9 +84,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    const pad = 12;
-    const bottom = { legH: 20, ctrlH: 30, gap: 15 };
-    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
+    const pad = 3;
+    const bottom = { legH: 0, ctrlH: 48, gap: 16 };
+    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap;
     const availH = lH - pad - bottomH;
 
     let plotSz = Math.min(lW - pad * 2, availH);
@@ -118,7 +118,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     // ─── Controls (HTML, positioned in left div) ──────────────
     const legY = plotY + plotSz + bottom.gap;
-    const ctrlY = legY + bottom.legH ;
+    const ctrlY = legY + bottom.legH + bottom.gap;
 
     const ctrlDiv = document.createElement("div");
     ctrlDiv.className = "traj-ctrl";
@@ -170,16 +170,29 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       );
     });
 
-    function positionLegend(legYPos) {
-      legendItems.forEach(({ }, li) => {
-        const lx = plotX + li * 110;
-        legendLineNodes[li]
-          .attr("x1", lx).attr("y1", legYPos)
-          .attr("x2", lx + 16).attr("y2", legYPos);
-        legendTextNodes[li]
-          .attr("x", lx + 20).attr("y", legYPos);
-      });
-    }
+function positionLegend(legYPos) {
+  const scale = plotSz / 240; 
+
+  legendItems.forEach(({}, li) => {
+    const spacing = 110 * scale;
+    const lineLen = 16 * scale;
+    const fontSize = 11 * scale;
+
+    const lx = plotX + li * spacing;
+
+    legendLineNodes[li]
+      .attr("x1", lx)
+      .attr("y1", legYPos)
+      .attr("x2", lx + lineLen)
+      .attr("y2", legYPos)
+      .attr("stroke-width", (li === 1 ? 2.2 : 1.5) * scale);
+
+    legendTextNodes[li]
+      .attr("x", lx + lineLen + 4 * scale)
+      .attr("y", legYPos)
+      .style("font-size", `${fontSize}px`);
+  });
+}
 
     positionLegend(legY);
 
@@ -195,7 +208,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    const rPad = 12;
+    const rPad = 5;
 
     // Game badge (top-leftish)
     const iconR = Math.min(rW * 0.11, 28);
@@ -232,8 +245,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     // ─── Replay button: right of badge, vertically centered with it ─────────────
     const replayW = 72, replayH = 20;
-    const replayX = rW - replayW - rPad;
-    const replayY = replayH / 2;
+    const replayX = rW - replayW - rPad - 10;
+    const replayY = iconCY - 3*replayH/4 ;
 
     const btnBg = rSvg.append("rect")
       .attr("x", replayX).attr("y", replayY)
@@ -266,8 +279,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // ── Split right panel into left text column and right radar column ──
     // Text column: left rPad → ~55% of rW; radar column: remainder
     const textColW = Math.floor(rW * 0.52);
-    const radarColX = textColW + rPad;
-    const radarColW = rW - radarColX - rPad;
+    const radarColX = textColW;
+    const radarColW = rW - radarColX*1.05;
 
     const typeX = rPad;
 
@@ -429,6 +442,11 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       plotX = newPlotX;
       plotY = newPlotY;
 
+      // Offscreen canvas is sized to plotSz — null it so ensureOffscreen()
+      // recreates it at the new dimensions on the next drawTrail call.
+      offscreen = null;
+      offCtx    = null;
+
       // ── 4. Update D3 scales to new pixel range ────────────────
       xSc.range([plotX + 6, plotX + plotSz - 6]);
       ySc.range([plotY + plotSz - 6, plotY + 6]);
@@ -562,7 +580,7 @@ function revealCluster() {
       .attr("opacity", 1);
 
     // show replay after everything settles
-    setTimeout(() => { if (gen === _twGen) showReplayButton(); }, FADE_D + 500);
+    setTimeout(() => { if (gen === _twGen) showReplayButton(); }, FADE_D - 1800);
   }
 
   typePrefix();
@@ -591,19 +609,104 @@ function revealCluster() {
       ctx.stroke();
     }
 
-    function drawSegment(prev, seg, i, len) {
+    // ─── Offscreen canvas for gradient-fade trail rendering ───────────────────
+    // Strategy (Option A):
+    //   1. Draw the full trail onto an offscreen canvas at full opacity,
+    //      split into two Path2D objects (solid / dashed) — one stroke call each,
+    //      no per-segment alpha stacking, no cap artefacts at style transitions.
+    //   2. Apply a linear alpha gradient by compositing the offscreen result
+    //      with destination-in, so the tail fades to transparent without
+    //      touching any other pixel on the main canvas.
+    let offscreen = null;
+    let offCtx    = null;
+
+    function ensureOffscreen() {
+      // Lazily create / recreate when plot dimensions change (e.g. after resize).
+      if (!offscreen || offscreen.width !== plotSz || offscreen.height !== plotSz) {
+        offscreen        = document.createElement("canvas");
+        offscreen.width  = Math.ceil(plotSz);
+        offscreen.height = Math.ceil(plotSz);
+        offCtx           = offscreen.getContext("2d");
+      }
+    }
+
+    function drawTrail(trailArr) {
+      if (trailArr.length < 2) return;
+
+      ensureOffscreen();
+      const oc = offCtx;
+      const sz = offscreen.width;
+
+      // ── 1. Clear offscreen and build two style-bucketed paths ────
+      oc.clearRect(0, 0, sz, sz);
+
+      const solidPath  = new Path2D();
+      const dashedPath = new Path2D();
+
+      // Coordinates are translated into offscreen space (subtract plotX/plotY).
+      for (let j = 1; j < trailArr.length; j++) {
+        const prev = trailArr[j - 1];
+        const seg  = trailArr[j];
+        const path = seg.isDown ? solidPath : dashedPath;
+        path.moveTo(prev.x - plotX, prev.y - plotY);
+        path.lineTo(seg.x  - plotX, seg.y  - plotY);
+      }
+
+      // ── 2. Solid pass (mouse down) — one stroke, no caps stacking ─
+      oc.save();
+      oc.setLineDash([]);
+      oc.strokeStyle = TOKENS.trailDown;
+      oc.lineWidth   = 2.2;
+      oc.lineCap     = "round";
+      oc.lineJoin    = "round";
+      oc.stroke(solidPath);
+      oc.restore();
+
+      // ── 3. Dashed pass (mouse up) ─────────────────────────────────
+      oc.save();
+      oc.setLineDash([4, 3]);
+      oc.strokeStyle = TOKENS.trailUp;
+      oc.lineWidth   = 1.5;
+      oc.lineCap     = "butt";
+      oc.stroke(dashedPath);
+      oc.restore();
+
+      // ── 4. Fade gradient via destination-in compositing ───────────
+      // Gradient runs from the oldest visible point (alpha 0) to the
+      // newest (alpha 1), oriented along the direction of travel.
+      const first = trailArr[0];
+      const last  = trailArr[trailArr.length - 1];
+      const gx0   = first.x - plotX;
+      const gy0   = first.y - plotY;
+      const gx1   = last.x  - plotX;
+      const gy1   = last.y  - plotY;
+
+      const dx  = gx1 - gx0;
+      const dy  = gy1 - gy0;
+      const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Pull the gradient start slightly behind the oldest point so the
+      // very tip fades to fully transparent rather than cutting off hard.
+      const grad = oc.createLinearGradient(
+        gx0 - (dx / mag) * 12, gy0 - (dy / mag) * 12,
+        gx1, gy1
+      );
+      grad.addColorStop(0,    "rgba(0,0,0,0)");
+      grad.addColorStop(0.3,  "rgba(0,0,0,0.1)");
+      grad.addColorStop(1,    "rgba(0,0,0,1)");
+
+      oc.save();
+      oc.globalCompositeOperation = "destination-in";
+      oc.fillStyle = grad;
+      oc.fillRect(0, 0, sz, sz);
+      oc.restore();
+
+      // ── 5. Blit onto main canvas, clipped to the plot box ─────────
       ctx.save();
       ctx.beginPath();
-      ctx.rect(plotX, plotY, plotSz, plotSz);
+      ctx.rect(plotX, plotY, sz, sz);
       ctx.clip();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(seg.x, seg.y);
-      const alpha = 0.01 + (i / len) * 0.8;
-      ctx.strokeStyle = seg.isDown ? TOKENS.trailDown : TOKENS.trailUp;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = seg.isDown ? 2.2 : 1.5;
-      ctx.setLineDash(seg.isDown ? [] : [4, 3]);
-      ctx.stroke();
+      ctx.drawImage(offscreen, plotX, plotY);
       ctx.restore();
     }
 
@@ -614,11 +717,10 @@ function revealCluster() {
       trail.length = 0;
       const start = Math.max(0, f - MAX_TRAIL + 1);
       for (let i = start; i <= f; i++) {
-        const pt = ticks[i];
-        const seg = { x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown };
-        trail.push(seg);
-        if (trail.length > 1) drawSegment(trail[trail.length - 2], seg, trail.length - 1, trail.length);
+        const pt  = ticks[i];
+        trail.push({ x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown });
       }
+      drawTrail(trail);
       if (f < ticks.length) {
         const pt = ticks[f];
         cursor.attr("cx", xSc(pt.x)).attr("cy", ySc(pt.y))
@@ -660,16 +762,13 @@ function revealCluster() {
       cursor.attr("cx", px).attr("cy", py)
         .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
 
-      const seg = { x: px, y: py, isDown: pt.isDown };
-      trail.push(seg);
+      trail.push({ x: px, y: py, isDown: pt.isDown });
       if (trail.length > MAX_TRAIL) trail.shift();
 
       // Clear only the plot box — right panel is in a separate div/SVG
       ctx.clearRect(plotX, plotY, plotSz, plotSz);
       drawBackground();
-      for (let j = 1; j < trail.length; j++) {
-        drawSegment(trail[j - 1], trail[j], j, trail.length);
-      }
+      drawTrail(trail);
 
       syncControls();
       trajState.frame = f + 1;
