@@ -33,6 +33,19 @@ _model_lock = threading.Lock()
 
 EPS = 1e-6
 MAX_SPEED_PS = 800  # px/sample — discard teleport glitches
+# Must match the browser game's fixed timestep (game.html PHYSICS_MS = 1000/240).
+_PHYSICS_MS = 1000.0 / 240.0
+
+
+def _estimate_duration_ms_from_ticks(ticks: list) -> int:
+    """When the client sends duration 0 or omits it, derive ms from tick stream."""
+    if not ticks:
+        return 0
+    try:
+        last_si = max(int(t.get("sampleIndex", 0)) for t in ticks)
+        return int(round(float(last_si + 1) * _PHYSICS_MS))
+    except (TypeError, ValueError):
+        return int(round(float(len(ticks)) * _PHYSICS_MS))
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -70,7 +83,7 @@ def _dedupe(tick_inputs: list) -> list:
     return unique
 
 
-def _extract_features(tick_inputs: list, duration_ms: float) -> dict | None:
+def _extract_features(tick_inputs: list, duration_ms: int | float) -> dict | None:
     """Extract the 6 kinematic features from a list of tick dicts."""
     points = _dedupe(tick_inputs)
     if len(points) < 3:
@@ -81,7 +94,7 @@ def _extract_features(tick_inputs: list, duration_ms: float) -> dict | None:
     path_length = float(step_d.sum())
     straight_line = float(np.linalg.norm(coords[-1] - coords[0]))
     return {
-        "duration":        float(duration_ms),
+        "duration":        int(round(float(duration_ms))),
         "path_length":     path_length,
         "speed_mean":      float(step_d.mean()),
         "path_efficiency": straight_line / (path_length + EPS),
@@ -169,7 +182,7 @@ def _send_json(data_dir: Path, filename: str, missing_msg: str):
 
 # ── RF classify pipeline ──────────────────────────────────────────────────────
 
-def _rf_classify(model: dict, ticks: list, duration_ms: float, game_type: str) -> dict:
+def _rf_classify(model: dict, ticks: list, duration_ms: int | float, game_type: str) -> dict:
     """
     Full RF inference pipeline:
       downsample → extract features → z-score → RF predict →
@@ -216,7 +229,13 @@ def _rf_classify(model: dict, ticks: list, duration_ms: float, game_type: str) -
     )
 
     all_pts = _scatter_pts or []
-    cluster_pts = [p for p in all_pts if p.get("cluster") == cluster_id and not p.get("is_outlier", False)]
+    cluster_pts = [
+        p
+        for p in all_pts
+        if p.get("cluster") == cluster_id
+        and p.get("game_type") == game_type
+        and not p.get("is_outlier", False)
+    ]
     if cluster_pts:
         train_dists = np.array([
             math.sqrt((p["pca_x"] - centroid[0]) ** 2 + (p["pca_y"] - centroid[1]) ** 2)
@@ -239,6 +258,7 @@ def _rf_classify(model: dict, ticks: list, duration_ms: float, game_type: str) -
         exemplars = []
 
     return {
+        "classifier":    "rf",
         "cluster":       cluster_id,
         "cluster_name":  cluster_names.get(cluster_id, f"Cluster {cluster_id}"),
         "probabilities": prob_dict,
@@ -279,10 +299,10 @@ def create_app() -> Flask:
     @app.route("/health")
     def health():
         model = _load_model(data_dir)
-        return jsonify({
-            "status": "ok",
-            "classifier": "rf" if model is not None else "centroid_fallback",
-        })
+        out: dict = {"status": "ok", "model_ready": model is not None}
+        if model is not None:
+            out["classifier"] = "rf"
+        return jsonify(out)
 
     @app.route("/api/scatter_points.json")
     def api_scatter_points():
@@ -305,92 +325,41 @@ def create_app() -> Flask:
         duration  = body.get("duration")
 
         model = _load_model(data_dir)
+        if model is None:
+            return jsonify({
+                "error": "model_not_found",
+                "detail": "Missing dashboard/data/model.pkl — run notebook Step 10 export.",
+            }), 503
 
-        if model is not None and ticks and duration is not None:
-            try:
-                duration_ms = float(duration)
-            except (TypeError, ValueError):
-                return jsonify({"error": "'duration' must be a number (milliseconds)"}), 400
-
-            _get_scatter_pts(data_dir)  # warm cache for anomaly percentile
-
-            try:
-                result = _rf_classify(model, ticks, duration_ms, game_type)
-            except ValueError as exc:
-                return jsonify({"error": str(exc)}), 400
-            except Exception:
-                logger.exception("RF classify failed")
-                return jsonify({"error": "classification_failed"}), 500
-
-            return jsonify(result)
-
-        def _parse_feat(key):
-            val = body.get(key, 0)
-            if val is None or (isinstance(val, str) and not val.strip()):
-                raise ValueError(f"Field '{key}' must be a number.")
-            try:
-                return float(val)
-            except (TypeError, ValueError):
-                raise ValueError(f"Field '{key}' must be a number.")
+        if not ticks:
+            return jsonify({
+                "error": "bad_request",
+                "detail": "Expected JSON with non-empty 'ticks' and 'game_type'.",
+            }), 400
 
         try:
-            features = {
-                "speed_mean":      _parse_feat("speed_mean"),
-                "path_efficiency": _parse_feat("path_efficiency"),
-                "pause_rate":      _parse_feat("pause_rate"),
-                "duration":        _parse_feat("duration"),
-            }
+            duration_ms = float(duration) if duration is not None else float("nan")
+        except (TypeError, ValueError):
+            return jsonify({"error": "'duration' must be a number (milliseconds)"}), 400
+
+        if math.isfinite(duration_ms) and duration_ms > 0:
+            duration_ms = int(round(duration_ms))
+        else:
+            duration_ms = _estimate_duration_ms_from_ticks(ticks)
+        if duration_ms <= 0:
+            return jsonify({"error": "cannot_estimate_duration", "detail": "No ticks to infer duration."}), 400
+
+        _get_scatter_pts(data_dir)
+
+        try:
+            result = _rf_classify(model, ticks, duration_ms, game_type)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
+        except Exception:
+            logger.exception("RF classify failed")
+            return jsonify({"error": "classification_failed"}), 500
 
-        all_pts = _get_scatter_pts(data_dir)
-        if all_pts is None:
-            return jsonify({"error": "scatter_points.json missing — run notebook export"}), 503
-
-        pts = [p for p in all_pts if not p.get("is_outlier", False)]
-        if not pts:
-            return jsonify({"error": "no_scatter_points_available"}), 503
-
-        game_pts = [p for p in pts if p.get("game_type") == game_type] or pts if game_type else pts
-
-        feat_keys = list(features.keys())
-
-        def _dist(a, b):
-            return math.sqrt(sum((a.get(k, 0) - b.get(k, 0)) ** 2 for k in feat_keys))
-
-        from collections import defaultdict
-        sums   = defaultdict(lambda: defaultdict(float))
-        counts = defaultdict(int)
-        for p in game_pts:
-            cl = p["cluster"]
-            for fk in feat_keys:
-                sums[cl][fk] += p.get(fk, 0)
-            counts[cl] += 1
-        centroids = {cl: {fk: sums[cl][fk] / counts[cl] for fk in feat_keys} for cl in sums}
-
-        best_cluster = min(centroids, key=lambda cl: _dist(features, centroids[cl]))
-        cluster_pts  = sorted(
-            [p for p in game_pts if p["cluster"] == best_cluster],
-            key=lambda p: _dist(features, p),
-        )
-        exemplars = [
-            {"hf_index": p["hf_index"], "pca_x": p["pca_x"], "pca_y": p["pca_y"]}
-            for p in cluster_pts[:5]
-        ]
-
-        if model is None:
-            logger.warning(
-                "model.pkl not found in %s — using centroid-distance fallback. "
-                "Run the notebook export cell (Step 10) to enable the RF classifier.",
-                data_dir,
-            )
-
-        return jsonify({
-            "cluster":   best_cluster,
-            "features":  features,
-            "exemplars": exemplars,
-            "centroid":  centroids[best_cluster],
-        })
+        return jsonify(result)
 
     @app.route("/session/<int:hf_index>")
     def get_session(hf_index: int):
@@ -405,10 +374,15 @@ def create_app() -> Flask:
             return jsonify({"error": "not_found", "hf_index": hf_index, "n_rows": n}), 404
 
         row = _ds_all[hf_index]
+        raw_dur = row.get("duration")
+        try:
+            dur_out = int(round(float(raw_dur))) if raw_dur is not None else None
+        except (TypeError, ValueError):
+            dur_out = raw_dur
         return jsonify({
             "hf_index":    hf_index,
             "game_type":   row.get("gameType"),
-            "duration":    row.get("duration"),
+            "duration":    dur_out,
             "touchscreen": bool(row.get("touchscreen", False)),
             "ticks":       _tick_inputs_to_json(row.get("tickInputs")),
         })

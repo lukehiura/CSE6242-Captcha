@@ -693,45 +693,6 @@ async function loadScript(src) {
   });
 }
 
-function computeFeatures(session) {
-  const ticks = session.tickInputs || [];
-  const n = ticks.length;
-
-  if (n < 2) {
-    return { speed_mean: 0, path_efficiency: 0, pause_rate: 0, duration: 0 };
-  }
-
-  const tickCount  = session.physicsTickCount || n;
-  const durationMs = session.duration || (tickCount * (1000 / 240));
-
-  let totalDist = 0;
-  let pauses = 0;
-  const PAUSE_THRESH = 0.5;
-
-  for (let i = 1; i < n; i++) {
-    const dx = ticks[i].x - ticks[i-1].x;
-    const dy = ticks[i].y - ticks[i-1].y;
-    const d  = Math.sqrt(dx*dx + dy*dy);
-    totalDist += d;
-    if (d < PAUSE_THRESH) pauses++;
-  }
-
-  const dx0 = ticks[n-1].x - ticks[0].x;
-  const dy0 = ticks[n-1].y - ticks[0].y;
-  const straightLine = Math.sqrt(dx0*dx0 + dy0*dy0);
-
-  const speed_mean      = totalDist / Math.max(n - 1, 1);
-  const path_efficiency = totalDist > 0 ? Math.min(straightLine / totalDist, 1) : 0;
-  const pause_rate      = (n - 1) > 0 ? pauses / (n - 1) : 0;
-
-  return {
-    speed_mean:      parseFloat(speed_mean.toFixed(4)),
-    path_efficiency: parseFloat(path_efficiency.toFixed(4)),
-    pause_rate:      parseFloat(pause_rate.toFixed(4)),
-    duration:        parseFloat(durationMs.toFixed(2)),
-  };
-}
-
 async function finishGame(gameIdx, playSeed) {
   const G = wasmModule;
 
@@ -745,23 +706,21 @@ async function finishGame(gameIdx, playSeed) {
     console.warn("[game] Could not read session data:", e);
   }
 
-  const computed = computeFeatures(JsonSession);
-  console.log("[game] computed features:", computed);
-
-  // Build raw-tick payload for the RF classifier path.
+  // Raw ticks + duration only — feature extraction matches server (_extract_features + downsample).
   const rawTicks = (JsonSession.tickInputs || []).map(t => ({
     x: t.x, y: t.y, isDown: t.isDown, sampleIndex: t.sampleIndex,
   }));
+  const tickCount = JsonSession.physicsTickCount || rawTicks.length;
+  let durationMs = JsonSession.duration != null ? Number(JsonSession.duration) : NaN;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    durationMs = tickCount * PHYSICS_MS;
+  }
+  durationMs = Math.round(durationMs);
 
-  const sessionFeatures = {
-    ticks:           rawTicks,
-    duration:        computed.duration,
-    game_type:       GAME_TYPES[gameIdx],
-    puzzle_seed:     playSeed,
-    speed_mean:      computed.speed_mean,
-    path_efficiency: computed.path_efficiency,
-    pause_rate:      computed.pause_rate,
-    duration_ms:     computed.duration,
+  const classifyPayload = {
+    ticks: rawTicks,
+    duration: durationMs,
+    game_type: GAME_TYPES[gameIdx],
   };
 
   try { G._game_cleanup(); } catch(e) {}
@@ -771,10 +730,19 @@ async function finishGame(gameIdx, playSeed) {
     const resp = await fetch("/api/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(sessionFeatures),
+      body: JSON.stringify(classifyPayload),
     });
-    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-    result = await resp.json();
+    let data;
+    try {
+      data = await resp.json();
+    } catch {
+      data = {};
+    }
+    if (!resp.ok) {
+      const msg = data.detail || data.error || `Server returned ${resp.status}`;
+      throw new Error(msg);
+    }
+    result = data;
   } catch (err) {
     console.error("[classify]", err);
     showError("game-error", `Classification failed: ${err.message}`);
@@ -782,17 +750,19 @@ async function finishGame(gameIdx, playSeed) {
     return;
   }
 
-  renderResults(result, sessionFeatures);
+  renderResults(result, { game_type: GAME_TYPES[gameIdx] });
 }
 
 
-function renderResults(result, features) {
+function renderResults(result, ctx) {
+  const feats = result.features_raw || {};
   const info = CLUSTER_INFO[result.cluster] || { name: `Cluster ${result.cluster}`, color: "#888", desc: "" };
-  const clr  = info.color;
+  const displayName = result.cluster_name || info.name;
+  const clr = info.color;
 
   document.getElementById("results-badge").textContent      = `Cluster ${result.cluster}`;
   document.getElementById("results-badge").style.cssText    = `border-color:${clr};color:${clr}`;
-  document.getElementById("results-cluster-name").textContent = info.name;
+  document.getElementById("results-cluster-name").textContent = displayName;
   document.getElementById("results-cluster-name").style.color = clr;
   document.getElementById("results-cluster-desc").textContent  = info.desc;
 
@@ -807,15 +777,22 @@ function renderResults(result, features) {
   }
 
   const statDefs = [
-    { key: "speed_mean",      label: "Avg Speed",  unit: "px/tick" },
-    { key: "path_efficiency", label: "Efficiency", unit: "" },
-    { key: "pause_rate",      label: "Pause Rate", unit: "" },
-    { key: "duration_ms",     label: "Duration",   unit: "ms" },
+    { key: "speed_mean",      label: "Avg speed",     unit: "px/sample" },
+    { key: "path_efficiency", label: "Path efficiency", unit: "" },
+    { key: "pause_rate",      label: "Pause rate",    unit: "" },
+    { key: "duration",        label: "Duration",      unit: "ms" },
+    { key: "path_length",     label: "Path length",   unit: "px" },
+    { key: "speed_std",       label: "Speed std dev", unit: "px/sample" },
   ];
 
-  document.getElementById("results-stats").innerHTML = statDefs.map(s => {
-    const raw = features[s.key] ?? result.features?.[s.key];
-    const val = raw != null ? Number(raw).toFixed(2) : "—";
+  document.getElementById("results-stats").innerHTML = statDefs.filter(s => s.key in feats).map(s => {
+    const raw = feats[s.key];
+    const val =
+      raw == null
+        ? "—"
+        : s.key === "duration"
+          ? String(Math.round(Number(raw)))
+          : Number(raw).toFixed(2);
     return `
       <div class="result-stat">
         <div class="result-stat-label">${s.label}</div>
@@ -827,7 +804,7 @@ function renderResults(result, features) {
   const exemplar = result.exemplars?.[0];
   let dashUrl = `/dashboard?cluster=${result.cluster}`;
   if (exemplar) dashUrl += `&point=${exemplar.hf_index}`;
-  if (features.game_type) dashUrl += `&game=${encodeURIComponent(features.game_type)}`;
+  if (ctx.game_type) dashUrl += `&game=${encodeURIComponent(ctx.game_type)}`;
   document.getElementById("btn-see-dashboard").href = dashUrl;
 
   showPage("results");

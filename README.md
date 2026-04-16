@@ -9,9 +9,9 @@ This repository studies mouse/touch trajectories from CAPTCHA-style mini-games: 
 ## Key features
 
 - **`notebook/CaptchaSolve.ipynb`** — End-to-end analysis: feature extraction (six trajectory metrics), z-scoring within game type, PCA, K-Means, Random Forest classifier (97% accuracy, macro F1 0.97), figures under `figures/`, and export of `dashboard/data/*.json` + `model.pkl`.
-- **Flask app (`dashboard/backend/app.py`)** — Serves static files from `dashboard/frontend/`, JSON under `/api/`, raw session ticks via `/session/<hf_index>`, and **POST `/api/classify`**. When `model.pkl` is present the endpoint runs the full RF pipeline (downsample → feature extraction → z-score → RF predict → PCA projection → anomaly percentile). Falls back to centroid-distance approximation if the model file is missing.
+- **Flask app (`dashboard/backend/app.py`)** — Serves static files from `dashboard/frontend/`, JSON under `/api/`, raw session ticks via `/session/<hf_index>`, and **POST `/api/classify`**. With `dashboard/data/model.pkl` (committed in this repo), the server always runs the full RF pipeline (downsample → feature extraction → z-score → RF predict → PCA projection → anomaly percentile).
 - **Play UI (`/` → `game.html`)** — Loads `game.js` (Emscripten bundle), runs three game modes (`sheep-herding`, `thread-the-needle`, `polygon-stacking`), records raw ticks, sends them to `/api/classify` for RF classification, then links to the dashboard with query params.
-- **Dashboard (`/dashboard` → `index.html`)** — D3.js: PC1 vs PC2 scatter, game-type filter panel, radar view (cluster mean vs selected point using `FEATURES` in `js/config.js`), animated trajectory from `/session/<id>`, deep-link support via `?cluster=`, `?point=`, `?game=`.
+- **Dashboard (`/dashboard` → `index.html`)** — D3.js: PC1 vs PC2 scatter, game-type filter panel, radar on six raw kinematic features (same set as clustering; see `js/config.js`), colors from `cluster_meta.json`, animated trajectory from `/session/<id>`, deep-link support via `?cluster=`, `?point=`, `?game=`.
 
 ## Installation
 
@@ -46,17 +46,18 @@ Run the notebook through the **export** section (Step 9), then run the **model e
 
 | File | Role |
 |------|------|
-| `dashboard/data/scatter_points.json` | Per-session `hf_index`, `pca_x` / `pca_y`, `cluster`, features, `is_outlier`, etc. |
+| `dashboard/data/scatter_points.json` | Per-session `hf_index`, `pca_x` / `pca_y`, `cluster`, six kinematic features (`path_length`, `speed_std`, …), `is_outlier`, etc. |
 | `dashboard/data/cluster_meta.json` | Cluster `id`, `name`, `size`, `color` for the dashboard legend |
 | `dashboard/data/cluster_profiles.json` | Per-cluster feature means plus `_norm` columns for radar charts |
 | `dashboard/data/model.pkl` | RF + PCA + K-Means + z-score params — loaded by `/api/classify` |
 
-**`model.pkl` is required for the RF classifier path.** Without it, `/api/classify` falls back to centroid-distance matching and logs a warning at startup. The `/health` endpoint reports which mode is active: `"classifier": "rf"` or `"classifier": "centroid_fallback"`.
+**`model.pkl`** must be present under `dashboard/data/` for classification: `/api/classify` only runs the Random Forest pipeline and returns **503** with `model_not_found` if the file is missing. `/health` includes `"model_ready": true` and `"classifier": "rf"` when the bundle loads.
 
 ### 2. Run the web server
 
 ```bash
-uv run python dashboard/backend/app.py
+uv run python main.py
+# equivalent: uv run python -m dashboard.backend.app
 ```
 
 Default listen address: `http://0.0.0.0:5001/`.
@@ -65,7 +66,7 @@ Default listen address: `http://0.0.0.0:5001/`.
 
 - See which process holds the port (no `sudo` needed for your own user): `lsof -i :5001`
 - Stop it: `kill <PID>` (e.g. the `python3.x` PID shown by `lsof`)
-- Or use another port without killing anything: `PORT=5002 uv run python dashboard/backend/app.py` (then open `http://127.0.0.1:5002/`)
+- Or use another port without killing anything: `PORT=5002 uv run python main.py` (then open `http://127.0.0.1:5002/`)
 
 **`.env` tip:** If you see *“There are .env files present. Install python-dotenv to use them”*, Flask is not loading `.env` automatically. Either export variables in your shell, add `python-dotenv` and load it in `app.py`, or ignore the message if you do not rely on `.env`.
 
@@ -73,11 +74,11 @@ Default listen address: `http://0.0.0.0:5001/`.
 |-------|----------|
 | `/` | `game.html` (play + classify) |
 | `/dashboard` | `index.html` (PCA dashboard) |
-| `/health` | `{"status":"ok"}` |
+| `/health` | `{"status":"ok","model_ready":true,"classifier":"rf"}` when `model.pkl` loads; `model_ready` false if missing |
 | `/api/scatter_points.json` | Static JSON from data dir |
 | `/api/cluster_meta.json` | Static JSON from data dir |
 | `/api/cluster_profiles.json` | Static JSON from data dir |
-| `POST /api/classify` | JSON body → cluster id + exemplar HF indices |
+| `POST /api/classify` | RF only: JSON body → cluster id + exemplar HF indices; **503** if `model.pkl` missing |
 | `/session/<int:hf_index>` | Session metadata + `ticks` from HF dataset |
 
 **Dashboard deep link** (after playing, the results page builds this automatically):
@@ -99,14 +100,6 @@ curl -s -X POST http://127.0.0.1:5001/api/classify \
 ```
 
 Response includes `cluster`, `cluster_name`, `probabilities` (per-cluster RF confidence), `features_raw`, `features_z`, `pca_coords`, `anomaly_pct`, and `exemplars`.
-
-**Classify API — centroid fallback** (pre-computed scalar features, used when `model.pkl` is absent):
-
-```bash
-curl -s -X POST http://127.0.0.1:5001/api/classify \
-  -H "Content-Type: application/json" \
-  -d '{"speed_mean":1.2,"path_efficiency":0.5,"pause_rate":0.1,"duration":8.0,"game_type":"sheep-herding"}'
-```
 
 ## Configuration / environment variables
 
@@ -139,9 +132,9 @@ CSE6242-Captcha/
     └── frontend/
         ├── index.html      # dashboard (served at /dashboard)
         ├── game.html       # game + classify (served at /)
-        ├── game.js         # Emscripten runtime + WASM glue
-        ├── css/
-        └── js/             # D3 dashboard modules, shared config/state
+        ├── game.js         # Emscripten runtime + WASM glue (paired with game.wasm)
+        ├── css/            # tokens, layout, components, viz.css
+        └── js/             # D3 dashboard modules only — not a second copy of game.js
 ```
 
 ## Contributing

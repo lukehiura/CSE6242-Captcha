@@ -8,23 +8,65 @@ function _debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+/** Min–max per feature across the four cluster profile rows — matches notebook Step 9 radar normalization. */
+function buildFeatureScalesFromClusterProfiles(profiles) {
+  const scales = {};
+  FEATURES.forEach(f => {
+    const vals = profiles.map(p => p[f]).filter(v => typeof v === "number" && Number.isFinite(v));
+    const ext = vals.length ? d3.extent(vals) : [0, 1];
+    let hi = ext[1];
+    if (ext[0] === ext[1]) hi += 1e-9;
+    if (!(hi > 0)) hi = 1;
+    scales[f] = d3.scaleLinear().domain([0, hi]).range([0, 1]).clamp(true);
+  });
+  return scales;
+}
+
+function _fallbackFeatureScalesFromPoints(points) {
+  const scales = {};
+  FEATURES.forEach(f => {
+    const vals = points.map(d => d[f]).filter(v => typeof v === "number" && Number.isFinite(v));
+    const ext = vals.length ? d3.extent(vals) : [0, 1];
+    let hi = ext[1];
+    if (ext[0] === ext[1]) hi += 1e-9;
+    if (!(hi > 0)) hi = 1;
+    scales[f] = d3.scaleLinear().domain([0, hi]).range([0, 1]).clamp(true);
+  });
+  return scales;
+}
+
+const TOOLTIP_MAX_WIDTH_PX = 260;
+
+function positionTooltipNearCursor(event) {
+  if (!tooltip) return;
+  const el = tooltip.node();
+  const tw = el.offsetWidth || TOOLTIP_MAX_WIDTH_PX;
+  const th = el.offsetHeight || 100;
+  const pad = 12;
+  let left = event.pageX + 15;
+  let top = event.pageY - 20;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const sx = window.scrollX;
+  const sy = window.scrollY;
+  if (left + tw > sx + vw - pad) left = event.pageX - tw - 15;
+  if (left < sx + pad) left = sx + pad;
+  if (top + th > sy + vh - pad) top = event.pageY - th - 15;
+  if (top < sy + pad) top = sy + pad;
+  tooltip.style("left", `${left}px`).style("top", `${top}px`);
+}
 
 
-function initScatter(points, clusters) {
-  console.log(clusters);
+function initScatter(points, clusters, clusterProfiles) {
   colorMap = {};
 
   clusters.forEach((c) => {
-
-    //colorMap[c.id] = c.color || COLOR_PALETTE_FALLBACK[i] || "#888";
-    colorMap[c.id] = CLUSTER_COLORS[c.id];
+    colorMap[c.id] = c.color || CLUSTER_COLORS[c.id] || "#888";
   });
 
-  featureScales = {};
-  FEATURES.forEach(f => {
-    const ext = d3.extent(points, d => d[f]);
-    featureScales[f] = d3.scaleLinear().domain(ext).range([0, 1]);
-  });
+  featureScales = clusterProfiles && clusterProfiles.length
+    ? buildFeatureScalesFromClusterProfiles(clusterProfiles)
+    : _fallbackFeatureScalesFromPoints(points);
 
   const container = document.getElementById("scatter-plot");
   _dpr = window.devicePixelRatio || 1;
@@ -176,9 +218,8 @@ function initScatter(points, clusters) {
 
     tooltip
       .html(buildTooltipHTML(best))
-      .style("opacity", 1)
-      .style("left", (event.pageX + 10) + "px")
-      .style("top", (event.pageY - 20) + "px");
+      .style("opacity", 1);
+    requestAnimationFrame(() => positionTooltipNearCursor(event));
 
     showHoverRadar(best);
   });
@@ -192,6 +233,12 @@ function initScatter(points, clusters) {
 }
 
 function buildTooltipHTML(d) {
+  const extra =
+    typeof d.path_length === "number" && typeof d.speed_std === "number"
+      ? `
+      <span class="tooltip-dim">Path len</span><span>${d.path_length.toFixed(1)}</span>
+      <span class="tooltip-dim">Speed σ</span><span>${d.speed_std.toFixed(2)}</span>`
+      : "";
   return `
     <div class="tooltip-meta">#${d.hf_index} · ${d.game_type}</div>
     <div class="tooltip-cluster" style="color:${colorMap[d.cluster]}">${CLUSTER_NAMES[d.cluster]}</div>
@@ -199,7 +246,8 @@ function buildTooltipHTML(d) {
       <span class="tooltip-dim">Speed</span><span>${d.speed_mean.toFixed(2)}</span>
       <span class="tooltip-dim">Efficiency</span><span>${d.path_efficiency.toFixed(2)}</span>
       <span class="tooltip-dim">Pause rate</span><span>${d.pause_rate.toFixed(2)}</span>
-      <span class="tooltip-dim">Duration</span><span>${d.duration.toFixed(2)}</span>
+      <span class="tooltip-dim">Duration</span><span>${Math.round(d.duration)}</span>
+      ${extra}
       <span class="tooltip-dim">Anomaly</span><span>${d.anomaly_score.toFixed(2)}</span>
     </div>
   `;
@@ -212,9 +260,15 @@ function buildStatsCardHTML(d) {
     { label: "Speed", value: d.speed_mean.toFixed(2), unit: "px/tick" },
     { label: "Efficiency", value: d.path_efficiency.toFixed(2), unit: "" },
     { label: "Pause rate", value: d.pause_rate.toFixed(2), unit: "" },
-    { label: "Duration", value: d.duration.toFixed(2), unit: "log-ms" },
-    { label: "Anomaly", value: d.anomaly_score.toFixed(2), unit: "" },
+    { label: "Duration", value: String(Math.round(d.duration)), unit: "ms" },
   ];
+  if (typeof d.path_length === "number" && typeof d.speed_std === "number") {
+    stats.push(
+      { label: "Path length", value: d.path_length.toFixed(1), unit: "px" },
+      { label: "Speed σ", value: d.speed_std.toFixed(2), unit: "" },
+    );
+  }
+  stats.push({ label: "Anomaly", value: d.anomaly_score.toFixed(2), unit: "" });
   return `
     <div class="stats-card">
       <div class="stats-card-header">
@@ -359,11 +413,11 @@ function scatterApplyFilter(activeClusters, activeGameTypes) {
     .attr("stroke-width", d => d.hf_index === state.selectedPoint ? SCATTER_SELECTED_STROKE_W * _dpr : 0)
     .transition().duration(TRANSITION_MS).ease(TRANSITION_EASE)
     .attr("opacity", d => {
-      if (d.hf_index === state.selectedPoint) return 1;
       const ok = (activeClusters.size === 0 || activeClusters.has(d.cluster)) &&
         (activeGameTypes.size === 0 || activeGameTypes.has(d.game_type));
       const op = ok ? SCATTER_SELECTED_OPACITY : SCATTER_UNSELECTED_OPACITY;
       committedOpacity.set(d.hf_index, op);
+      if (d.hf_index === state.selectedPoint) return 1;
       return op;
     });
 }

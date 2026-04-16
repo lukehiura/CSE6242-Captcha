@@ -8,8 +8,10 @@ dependencies = [
     # Data / ML
     "numpy>=1.26",
     "pandas>=2.2",
+    "scipy>=1.11",
     "scikit-learn>=1.4",
     "datasets>=2.19",
+    "fastparquet>=2024.2.0",
     # Visualization (notebook)
     "matplotlib>=3.8",
     "seaborn>=0.13",
@@ -20,6 +22,7 @@ dependencies = [
     "flask>=3.0",
     "flask-cors>=4.0",
     "kneed>=0.8.6",
+    "nbconvert[webpdf]>=7.17.0",
 ]
 
 [project.optional-dependencies]
