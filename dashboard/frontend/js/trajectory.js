@@ -98,6 +98,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     let revealDone = false;
     let twStarted = false;
     const trail = [];
+    // Typewriter generation counter — incremented on every reset so that
+    // any setTimeout callbacks still in flight from a previous run are
+    // silently dropped when they fire (they check their captured gen).
+    let _twGen = 0;
     // Scales
     const xSc = d3.scaleLinear()
       .domain(d3.extent(ticks, d => d.x))
@@ -377,6 +381,20 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           //.attr("stroke", clusterColor)
           .attr("fill", d3.color(clusterColor).copy({ opacity: 0.5 }));
       };
+
+      // Expose reset — interrupts any in-flight transition and restores
+      // each element to its exact initial attribute values.
+      snapG._resetRadar = function () {
+        basePoly.interrupt()
+          .attr("fill", "var(--text-lo)")
+          .attr("opacity", 0.5);
+
+        if (clusterPoly) {
+          clusterPoly.interrupt()
+            .attr("fill", "none")
+            .attr("stroke-opacity", 0);
+        }
+      };
     }
 
     // =========================================================
@@ -459,11 +477,15 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       timeLabel.textContent = `${cur} / ${totalMs()} ms`;
     }
 
-    function typeLines(lines, nodes, delay, onDone) {
+    function typeLines(lines, nodes, delay, onDone, gen) {
+      // Each call captures the generation at invocation time.
+      // If _twGen has moved on by the time a timer fires, we drop it.
       function typeLine(li) {
+        if (gen !== _twGen) return;
         if (li >= lines.length) { if (onDone) onDone(); return; }
         let ci = 0;
         (function typeChar() {
+          if (gen !== _twGen) return;
           if (ci > lines[li].length) { typeLine(li + 1); return; }
           nodes[li].text(lines[li].slice(0, ci++));
           setTimeout(typeChar, delay);
@@ -478,6 +500,11 @@ function revealCluster() {
   const FADE_D = 2400;
   const PAUSE = 500;
 
+  // Capture the generation active at the moment this reveal was scheduled.
+  // If startAnim() is called before we finish, _twGen will have advanced
+  // and every pending setTimeout below will bail out harmlessly.
+  const gen = _twGen;
+
   // ── Reset state ───────────────────────────────
   prefixNode.text("").attr("opacity", 1);
   nameNode.text("").attr("opacity", 0);
@@ -486,6 +513,7 @@ function revealCluster() {
   let i = 0;
 
   function typePrefix() {
+    if (gen !== _twGen) return;
     if (i <= prefixText.length) {
       prefixNode.text(prefixText.slice(0, i++));
       setTimeout(typePrefix, CHAR_DELAY);
@@ -497,6 +525,7 @@ function revealCluster() {
   }
 
   function revealAll() {
+    if (gen !== _twGen) return;
 
     // trigger radar immediately at reveal moment
     if (snapG._revealRadar) snapG._revealRadar();
@@ -533,7 +562,7 @@ function revealCluster() {
       .attr("opacity", 1);
 
     // show replay after everything settles
-    setTimeout(showReplayButton, FADE_D + 500);
+    setTimeout(() => { if (gen === _twGen) showReplayButton(); }, FADE_D + 500);
   }
 
   typePrefix();
@@ -620,7 +649,7 @@ function revealCluster() {
 
       if (!twStarted && f > 20) {
         twStarted = true;
-        typeLines(statsLines, typeNodes, CHAR_DELAY, null);
+        typeLines(statsLines, typeNodes, CHAR_DELAY, null, _twGen);
       }
 
       const pt = ticks[f];
@@ -654,6 +683,9 @@ function revealCluster() {
 function startAnim() {
   if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
 
+  // Invalidate all in-flight typewriter and reveal setTimeout callbacks.
+  _twGen++;
+
   trajState.frame = 0;
   trajState.paused = false;
   trajState.playing = true;
@@ -668,37 +700,36 @@ function startAnim() {
 
   // ── RESET CLUSTER TEXT ─────────────────────────────
   prefixNode
+    .interrupt()
     .text("")
     .attr("opacity", 0);
 
   nameNode
+    .interrupt()
     .text("")
     .attr("opacity", 0);
 
   // ── RESET RADAR VISUAL STATE ───────────────────────
-  if (snapG._resetRadar) snapG._resetRadar?.();
-
-  // fallback if no reset function exists
-  if (snapG.selectAll) {
-    snapG.selectAll("path")
-      .attr("stroke-opacity", 0.5)
-      .attr("fill", "var(--text-lo)");
-  }
+  if (snapG._resetRadar) snapG._resetRadar();
 
   // ── RESET ICON + BADGE ─────────────────────────────
+  // interrupt() cancels any in-flight fade transition before we clear attrs,
+  // so the transition end-value can't land after our reset.
   badge
+    .interrupt()
     .attr("stroke", null)
     .attr("fill", null);
 
   if (iconG) {
     iconG.selectAll("path, circle, rect, polygon, ellipse")
+      .interrupt()
       .style("fill", null)
       .style("stroke", null);
   }
 
   // ── HIDE REPLAY BUTTON ─────────────────────────────
-  btnBg.attr("opacity", 0);
-  btnTxt.attr("opacity", 0);
+  btnBg.interrupt().attr("opacity", 0);
+  btnTxt.interrupt().attr("opacity", 0);
 
   ctx.clearRect(0, 0, lW, lH);
   drawBackground();
