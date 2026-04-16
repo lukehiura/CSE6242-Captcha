@@ -9,12 +9,45 @@
 
 svg text {
   font-family: var(--font-ui);
-  fill: var(--text-mid);
+  fill: var(--text-mid); 
 }
 
-/* filters-text — legacy class used by D3, inherits from svg text global 
-.filters-text { /* intentionally empty — styles come from svg text + state modifiers  }
-*/
+/* Filter list labels (D3 SVG text) */
+.filters-text {
+  font-size: 12px;
+  fill: #A8A8A8;
+  font-weight: 400;
+  font-family: var(--font-ui);
+  letter-spacing: 0.2px;
+  transition: fill var(--transition-fast), opacity var(--transition-fast);
+}
+
+.filters-text.hovered {
+  fill: #DCDCDC;
+  cursor: pointer;
+}
+
+.filters-text.selected {
+  fill: var(--text-hi);
+  font-weight: 600;
+}
+
+/* SVG axis labels */
+.axis-label {
+  font-family: var(--font-ui);
+  fill: #bbb;
+  font-size: 16px;
+}
+
+/* Radar legend line label */
+.radar-legend-highlighted-line {
+  font-size: 12px;
+  paint-order: stroke;
+  stroke: #BFBFBF;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+
 
 /* =============================================================================
    2. TOOLTIP
@@ -35,14 +68,14 @@ svg text {
 }
 
 .tooltip-meta {
-  font-size: 0.7rem;
+  font-size: var(--text-size-xs);
   opacity: 0.65;
   margin-bottom: 4px;
 }
 
 .tooltip-cluster {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--text-size-md);
   margin-bottom: 6px;
 }
 
@@ -54,7 +87,9 @@ svg text {
   font-size: 0.8rem;
 }
 
-.tooltip-dim { opacity: 0.6; }
+.tooltip-dim {
+  opacity: 0.6;
+}
 
 
 /* =============================================================================
@@ -62,40 +97,81 @@ svg text {
    State classes set by JS: .is-hovered, .is-selected
    ============================================================================= */
 
-/* Text brightens on any active state */
-.is-hovered text,
-.is-selected text {
+/* Base interactive behavior */
+.filter-item {
+  cursor: pointer;
+}
+
+/* ============================================================================
+   TEXT STATES (shared)
+   ============================================================================ */
+
+.filter-item text {
+  fill: var(--text-lo);
+  transition: fill var(--transition-fast), font-weight var(--transition-fast);
+}
+
+.filter-item.is-hovered text,
+.filter-item.is-selected text {
   fill: var(--text-hi);
 }
 
-.is-selected text { font-weight: 600; }
-
-/* Filter circles */
-.filter-item circle {
-  fill: #1a1a1a;
-  stroke: #555;
-  stroke-width: 1.5;
-  transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+.filter-item.is-selected text {
+  font-weight: 600;
 }
 
+/* ============================================================================
+   SHAPE BASE STYLING (rects + circles unified)
+   ============================================================================ */
+
+.filter-item rect,
+.filter-item circle {
+  stroke: #333;
+  stroke-width: 1;
+  transition: fill var(--transition-fast),
+              stroke var(--transition-fast),
+              stroke-width var(--transition-fast);
+}
+
+/* ============================================================================
+   HOVER STATE
+   ============================================================================ */
+
+.filter-item.is-hovered rect,
+.filter-item.is-hovered circle {
+  stroke: var(--accent-dim);
+}
+
+/* Optional subtle hover fill for circles (filters UI) */
 .filter-item.is-hovered circle {
   fill: #2a2a2a;
-  stroke: var(--accent-dim);
   stroke-width: 2.5;
 }
 
+/* ============================================================================
+   SELECTED STATE
+   ============================================================================ */
+
+.filter-item.is-selected rect,
+.filter-item.is-selected circle {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+/* Stronger selected fill for filter circles */
 .filter-item.is-selected circle {
   fill: #0f1116;
-  stroke: var(--accent);
-  stroke-width: 3;
   filter: drop-shadow(0 0 10px var(--accent-dim));
 }
 
-/* Filter icon wrapper */
+/* ============================================================================
+   ICON SUPPORT (if used in filter items)
+   ============================================================================ */
+
 .filter-item .icon-wrapper {
   color: var(--text-lo);
   opacity: 0.65;
-  transition: color 140ms ease, opacity 140ms ease;
+  transition: color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .filter-item.is-hovered .icon-wrapper,
@@ -103,18 +179,13 @@ svg text {
   opacity: 1;
 }
 
-.filter-item.is-selected .icon-wrapper { color: var(--accent); }
-.filter-item.is-hovered  .icon-wrapper { color: var(--text-hi); }
-
-/* Legend rects */
-.legend-item rect {
-  stroke: #333;
-  stroke-width: 1;
-  transition: stroke 120ms ease, stroke-width 120ms ease;
+.filter-item.is-hovered .icon-wrapper {
+  color: var(--text-hi);
 }
 
-.legend-item.is-hovered rect { stroke: var(--accent-dim); }
-.legend-item.is-selected rect { stroke: var(--accent); stroke-width: 2; }
+.filter-item.is-selected .icon-wrapper {
+  color: var(--accent);
+}
 
 
 /* =============================================================================
@@ -130,28 +201,38 @@ svg text {
 .axis text,
 .axis-label {
   fill: var(--text-lo);
-  font-size: 0.75rem;
+  font-size: var(--text-size-xs);
 }
 
 /* Radar grid */
 .radar-grid-ring,
-.radar-grid-spoke {
+.radar-grid-spoke,
+.traj-radar-grid {
   stroke: var(--text-muted);
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.5; 
   stroke-dasharray: 2, 2;
   fill: none;
 }
 
-/* Radar text labels */
+/* Radar text labels — merged: identical rules */
 .radar-axis-label,
 .radar-legend-label {
-  font-size: 0.75rem;
+  font-size: var(--text-size-xs);
   fill: var(--text-lo);
 }
 
 /* Radar legend swatches */
-.radar-legend-line-swatch  { stroke: var(--text-lo); stroke-width: 2; }
-.radar-legend-diamond-swatch { fill: var(--text-lo); fill-opacity: 0.4; stroke: var(--text-lo); stroke-width: 0.5; }
+.radar-legend-line-swatch {
+  stroke: var(--text-lo);
+  stroke-width: 2;
+}
+
+.radar-legend-diamond-swatch {
+  fill: var(--text-lo);
+  fill-opacity: 0.4;
+  stroke: var(--text-lo);
+  stroke-width: 0.5;
+}
 
 
 /* =============================================================================
@@ -179,8 +260,8 @@ svg text {
 .traj-play-btn {
   width: 26px;
   height: 26px;
-  background: var(--bg-raised);
-  border: 1px solid var(--bg-border-2);
+  background: var(--traj-replay-bg);
+  border: 1px solid var(--traj-replay-border);
   color: var(--text-mid);
   border-radius: 4px;
   cursor: pointer;
@@ -190,7 +271,7 @@ svg text {
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .traj-play-btn:hover {
@@ -234,31 +315,29 @@ svg text {
   pointer-events: all;
 }
 
-/* SVG text modifiers */
-.traj-overlay text {
-  font-family: var(--font-ui);
-  fill: var(--text-mid);
-}
-
+/* Text label variants */
 .traj-label-bold {
-  fill: var(--text-hi);
+  fill: var(--text-mid);
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--text-size-md);
 }
 
-.traj-label-sm   { font-size: 10px; }
+.traj-label-sm {
+  font-size: var(--text-size-xs);
+  fill: var(--text-lo)
+}
 
-.traj-label-mono {
+/* Mono labels used in stats and cluster name */
+.traj-label-mono,
+.traj-label-mono-bold {
   font-family: var(--font-mono);
-  font-size: 10px;
-  fill: var(--text-mid);
+  font-size: var(--text-size-xs);
+  fill: var(--text-lo);
 }
 
 .traj-label-mono-bold {
-  font-family: var(--font-mono);
-  font-size: 10px;
   font-weight: 600;
-  fill: var(--text-hi);
+  fill: var(--text-lo);
 }
 
 /* Error state */
@@ -267,32 +346,37 @@ svg text {
   color: #c66;
 }
 
-/* Mini radar snapshot (right panel of trajectory) */
-.traj-radar-snap path {
-  stroke-width: 1.5;
-  opacity: 0.85;
+/* Trajectory legend */
+.traj-legend-line {
+  stroke-linecap: round;
 }
 
-.traj-radar-grid {
-  stroke: var(--text-muted);
-  stroke-opacity: 0.35;
-  stroke-dasharray: 2, 2;
-  fill: none;
+.traj-legend-line.traj-legend-up {
+  stroke: var(--traj-cursor-up);
+}
+
+.traj-legend-line.traj-legend-down {
+  stroke: var(--traj-cursor-down);
+}
+
+.traj-legend-label {
+  font-family: var(--font-ui);
+  fill: var(--text-mid);
+  font-size: var(--text-size-xs);
 }
 
 /* ── Trajectory split layout ──────────────────────────────── */
-/* #trajectory-plot is the flex container; left/right fill it equally */
 
 #trajectory-plot {
   display: flex;
   flex-direction: row;
   width: 100%;
   height: 100%;
-  min-height: 0;     /* allow shrink inside grid */
+  min-height: 0;
 }
 
 .traj-half {
-  position: relative;  /* contains absolutely-positioned canvas + svg */
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
   height: 100%;
@@ -319,19 +403,20 @@ svg text {
   min-width: 180px;
 }
 
-.stats-cluster-pill {
-  display: inline-block;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  border: 1.5px solid;
-  border-radius: 20px;
-  padding: 3px 12px;
-  white-space: nowrap;
+/* .stats-cluster-pill shape is defined alongside .cluster-badge in components.css */
+
+.stats-meta {
+  font-size: var(--text-size-xs);
+  color: var(--text-muted);
+  padding-left: 2px;
 }
 
-.stats-meta    { font-size: 0.75rem; color: var(--text-muted); padding-left: 2px; }
-.stats-metrics { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.stats-metrics {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
 
 .stats-metric {
   display: flex;
@@ -341,6 +426,21 @@ svg text {
   min-width: 64px;
 }
 
-.stats-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.stats-value { font-size: 1.15rem; font-weight: 700; color: var(--text-mid); line-height: 1; }
-.stats-unit  { font-size: 0.6rem; color: var(--text-muted); }
+.stats-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stats-value {
+  font-size: var(--text-size-lg);
+  font-weight: 700;
+  color: var(--text-mid);
+  line-height: 1;
+}
+
+.stats-unit {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}

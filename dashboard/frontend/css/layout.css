@@ -32,26 +32,6 @@ html, body {
   min-height: 600px;
 }
 
-/* Shared panel system */
-.panel {
-  display: grid;
-  grid-template-rows: 50px 1fr;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: #000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.panel h3 {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #fff;
-}
-
 /* Individual layout placement */
 #scatter-wrapper              { grid-column: 1 / span 8;  grid-row: 1 / span 8; padding: 10px; }
 #radar-wrapper                { grid-column: 9 / span 5;  grid-row: 1 / span 4; padding: 10px; }
@@ -59,7 +39,7 @@ html, body {
 #trajectory-wrapper           { grid-column: 9 / span 8;  grid-row: 5 / span 4; padding: 10px; }
 #selected-point-info-wrapper  { grid-column: 1 / span 7;  grid-row: 9 / span 1; padding: 6px 10px; display: flex; align-items: center; }
 
-/* Trajectory panel overrides — needs 3 rows and visible overflow for canvas/svg children */
+/* Trajectory panel overrides */
 #trajectory-wrapper {
   grid-template-rows: 50px 1fr auto;
   overflow: visible;

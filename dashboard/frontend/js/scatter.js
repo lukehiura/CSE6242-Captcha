@@ -135,9 +135,9 @@ function initScatter(points, clusters, clusterProfiles) {
   const legendG = svg.append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top + inner - clusters.length * legendSpacing})`);
 
-  const legendItems = legendG.selectAll(".legend-item")
+  const legendItems = legendG.selectAll(".filter-item")
     .data(clusters).join("g")
-    .attr("class", "legend-item")
+    .attr("class", "filter-item")
     .attr("data-cluster", d => d.id)
     .attr("transform", (d, i) => `translate(0,${i * legendSpacing})`)
     .style("cursor", "pointer");
@@ -147,6 +147,7 @@ function initScatter(points, clusters, clusterProfiles) {
     .attr("fill", d => colorMap[d.id] || "#888");
 
   legendItems.append("text")
+    .attr("class", "filters-text")
     .text(d => CLUSTER_NAMES[d.id])
     .attr("x", sq + gap).attr("y", sq / 2)
     .attr("dominant-baseline", "middle");
@@ -390,7 +391,7 @@ function _removeSelectionMarker() {
 }
 
 function updateLegendAppearance() {
-  svg.selectAll(".legend-item").each(function (d) {
+  svg.selectAll(".filter-item").each(function (d) {
     const g = d3.select(this);
 
     const isHovered = state.hoveredCluster === d.id;

@@ -90,9 +90,9 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    const pad = 12;
-    const bottom = { legH: 20, ctrlH: 30, gap: 6 };
-    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap * 2;
+    const pad = 3;
+    const bottom = { legH: 0, ctrlH: 48, gap: 16 };
+    const bottomH = bottom.legH + bottom.ctrlH + bottom.gap;
     const availH = lH - pad - bottomH;
 
     let plotSz = Math.min(lW - pad * 2, availH);
@@ -104,6 +104,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     let revealDone = false;
     let twStarted = false;
     const trail = [];
+    // Typewriter generation counter — incremented on every reset so that
+    // any setTimeout callbacks still in flight from a previous run are
+    // silently dropped when they fire (they check their captured gen).
+    let _twGen = 0;
     // Scales
     const xSc = d3.scaleLinear()
       .domain(d3.extent(ticks, d => d.x))
@@ -172,16 +176,29 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       );
     });
 
-    function positionLegend(legYPos) {
-      legendItems.forEach(({ }, li) => {
-        const lx = plotX + li * 110;
-        legendLineNodes[li]
-          .attr("x1", lx).attr("y1", legYPos + 1)
-          .attr("x2", lx + 16).attr("y2", legYPos + 1);
-        legendTextNodes[li]
-          .attr("x", lx + 20).attr("y", legYPos + 1);
-      });
-    }
+function positionLegend(legYPos) {
+  const scale = plotSz / 240; 
+
+  legendItems.forEach(({}, li) => {
+    const spacing = 110 * scale;
+    const lineLen = 16 * scale;
+    const fontSize = 11 * scale;
+
+    const lx = plotX + li * spacing;
+
+    legendLineNodes[li]
+      .attr("x1", lx)
+      .attr("y1", legYPos)
+      .attr("x2", lx + lineLen)
+      .attr("y2", legYPos)
+      .attr("stroke-width", (li === 1 ? 2.2 : 1.5) * scale);
+
+    legendTextNodes[li]
+      .attr("x", lx + lineLen + 4 * scale)
+      .attr("y", legYPos)
+      .style("font-size", `${fontSize}px`);
+  });
+}
 
     positionLegend(legY);
 
@@ -197,7 +214,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       .attr("preserveAspectRatio", "xMinYMin meet")
       .attr("class", "traj-overlay");
 
-    const rPad = 12;
+    const rPad = 5;
 
     // Game badge (top-leftish)
     const iconR = Math.min(rW * 0.11, 28);
@@ -234,8 +251,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
     // ─── Replay button: right of badge, vertically centered with it ─────────────
     const replayW = 72, replayH = 20;
-    const replayX = rW - replayW - rPad;
-    const replayY = replayH / 2;
+    const replayX = rW - replayW - rPad - 10;
+    const replayY = iconCY - 3*replayH/4 ;
 
     const btnBg = rSvg.append("rect")
       .attr("x", replayX).attr("y", replayY)
@@ -270,8 +287,8 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // ── Split right panel into left text column and right radar column ──
     // Text column: left rPad → ~55% of rW; radar column: remainder
     const textColW = Math.floor(rW * 0.52);
-    const radarColX = textColW + rPad;
-    const radarColW = rW - radarColX - rPad;
+    const radarColX = textColW;
+    const radarColW = rW - radarColX*1.05;
 
     const typeX = rPad;
 
@@ -304,7 +321,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // Height available: from typeY down to bottom of panel
     const radarBottomLimit = plotY + plotSz;  // mirrors left canvas plot bottom
     const radarAvailH = Math.min(rH - typeY - rPad, radarBottomLimit - typeY);
-    const radarSnapR = Math.max(16, Math.min(radarColW / 2, radarAvailH / 2)) * 0.5;
+    const radarSnapR = Math.max(16, Math.min(radarColW / 2, radarAvailH / 2)) * 0.7;
     const radarSnapCX = (radarColX + radarColW / 2);
     const radarSnapCY = typeY + radarSnapR + 4;  // small top offset inside column
 
@@ -315,12 +332,12 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       const aSlice = (2 * Math.PI) / nF;
 
       // Grid
-      const gridG = snapG.append("g").attr("class", "traj-radar-grid-layer");
+      const gridG = snapG.append("g");
       [0.33, 0.66, 1].forEach(frac => {
         gridG.append("circle")
           .attr("cx", radarSnapCX).attr("cy", radarSnapCY)
           .attr("r", radarSnapR * frac)
-          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+          .attr("class", "traj-radar-grid");
       });
       FEATURES.forEach((_, i) => {
         const a = i * aSlice - Math.PI / 2;
@@ -328,7 +345,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           .attr("x1", radarSnapCX).attr("y1", radarSnapCY)
           .attr("x2", radarSnapCX + Math.cos(a) * radarSnapR)
           .attr("y2", radarSnapCY + Math.sin(a) * radarSnapR)
-          .attr("class", "traj-radar-grid").attr("opacity", 0.35);
+          .attr("class", "traj-radar-grid");
       });
 
       // Point profile (grey until reveal)
@@ -341,7 +358,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         .datum([...ptVals, ptVals[0]])
         .attr("transform", `translate(${radarSnapCX},${radarSnapCY})`)
         .attr("d", radialLine)
-        .attr("fill", "#888899")
+        .attr("fill", "var(--text-lo)")
         .attr("opacity", 0.5);
 
       // Cluster centroid dashed outline (hidden until reveal)
@@ -368,7 +385,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
           .attr("x", lx).attr("y", ly)
           .attr("text-anchor", "middle")
           .attr("dominant-baseline", "middle")
-          .attr("class", "traj-label-sm")
+          .attr("class", "radar-axis-label")
           .text(f);
       });
 
@@ -384,6 +401,20 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
         basePoly.transition().duration(600).ease(d3.easeCubicOut)
           //.attr("stroke", clusterColor)
           .attr("fill", d3.color(clusterColor).copy({ opacity: 0.5 }));
+      };
+
+      // Expose reset — interrupts any in-flight transition and restores
+      // each element to its exact initial attribute values.
+      snapG._resetRadar = function () {
+        basePoly.interrupt()
+          .attr("fill", "var(--text-lo)")
+          .attr("opacity", 0.5);
+
+        if (clusterPoly) {
+          clusterPoly.interrupt()
+            .attr("fill", "none")
+            .attr("stroke-opacity", 0);
+        }
       };
     }
 
@@ -418,6 +449,11 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       plotSz = newPlotSz;  // eslint-disable-line no-global-assign
       plotX = newPlotX;
       plotY = newPlotY;
+
+      // Offscreen canvas is sized to plotSz — null it so ensureOffscreen()
+      // recreates it at the new dimensions on the next drawTrail call.
+      offscreen = null;
+      offCtx    = null;
 
       // ── 4. Update D3 scales to new pixel range ────────────────
       xSc.range([plotX + 6, plotX + plotSz - 6]);
@@ -460,11 +496,15 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       timeLabel.textContent = `${cur} / ${totalMs()} ms`;
     }
 
-    function typeLines(lines, nodes, delay, onDone) {
+    function typeLines(lines, nodes, delay, onDone, gen) {
+      // Each call captures the generation at invocation time.
+      // If _twGen has moved on by the time a timer fires, we drop it.
       function typeLine(li) {
+        if (gen !== _twGen) return;
         if (li >= lines.length) { if (onDone) onDone(); return; }
         let ci = 0;
         (function typeChar() {
+          if (gen !== _twGen) return;
           if (ci > lines[li].length) { typeLine(li + 1); return; }
           nodes[li].text(lines[li].slice(0, ci++));
           setTimeout(typeChar, delay);
@@ -473,73 +513,79 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       typeLine(0);
     }
 
-    function revealCluster() {
+function revealCluster() {
 
-      // 1. start prefix typing
-      prefixNode.attr("opacity", 1);
-      const prefixText = "Behavior group: ";
-      let ci = 0;
-      let revealStarted = false;
-      (function typePrefix() {
-        // when prefix completes → trigger reveal ONCE
-        if (ci === prefixText.length && !revealStarted) {
-          revealStarted = true;
-          // 2. start radar + badge/icon color transition immediately
-          if (snapG._revealRadar) snapG._revealRadar();
-          if (iconG) {
-            iconG.selectAll("path, circle, rect, polygon, ellipse")
-              .transition()
-              .duration(1800)
-              .ease(d3.easeCubicOut)
-              .style("fill", clusterColor)
-              .style("stroke", clusterColor);
-          }
-          badge.transition()
-            .duration(1800)
-            .ease(d3.easeCubicOut)
-            .attr("stroke", clusterColor)
-            .attr("fill", clusterColor + "22");
-        }
-        // continue prefix typing
-        if (ci <= prefixText.length) {
-          prefixNode.text(prefixText.slice(0, ci++));
-          setTimeout(typePrefix, CHAR_DELAY);
-          return;
-        }
+  const prefixText = "Behavior group: ";
+  const FADE_D = 2400;
+  const PAUSE = 500;
 
-        // 3. start typing cluster name AFTER prefix fully done
-        nameNode.attr("opacity", 1);
+  // Capture the generation active at the moment this reveal was scheduled.
+  // If startAnim() is called before we finish, _twGen will have advanced
+  // and every pending setTimeout below will bail out harmlessly.
+  const gen = _twGen;
 
-        let ni = 0;
+  // ── Reset state ───────────────────────────────
+  prefixNode.text("").attr("opacity", 1);
+  nameNode.text("").attr("opacity", 0);
 
-        (function typeName() {
+  // ── 1. TYPE PREFIX ONLY ───────────────────────
+  let i = 0;
 
-          if (ni > clusterLabel.length) {
-
-            // 4. final polish (optional re-assert color consistency)
-            if (iconG) {
-              iconG.selectAll("path, circle, rect, polygon, ellipse")
-                .style("fill", clusterColor)
-                .style("stroke", clusterColor);
-            }
-
-            badge
-              .attr("stroke", clusterColor)
-              .attr("fill", clusterColor + "22");
-
-            // 5. show replay
-            showReplayButton();
-
-            return;
-          }
-
-          nameNode.text(clusterLabel.slice(0, ni++));
-          setTimeout(typeName, CHAR_DELAY);
-
-        })();
-
-      })();
+  function typePrefix() {
+    if (gen !== _twGen) return;
+    if (i <= prefixText.length) {
+      prefixNode.text(prefixText.slice(0, i++));
+      setTimeout(typePrefix, CHAR_DELAY);
+      return;
     }
+
+    // ── 2. pause before reveal ───────────────────
+    setTimeout(revealAll, PAUSE);
+  }
+
+  function revealAll() {
+    if (gen !== _twGen) return;
+
+    // trigger radar immediately at reveal moment
+    if (snapG._revealRadar) snapG._revealRadar();
+
+    // icon + badge fade together
+    if (iconG) {
+      iconG.selectAll("path, circle, rect, polygon, ellipse")
+        .transition()
+        .duration(FADE_D)
+        .ease(d3.easeCubicOut)
+        .style("fill", clusterColor)
+        .style("stroke", clusterColor);
+    }
+
+    badge
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("stroke", clusterColor)
+      .attr("fill", clusterColor + "22");
+
+    // fade in BOTH text elements together
+    prefixNode
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("opacity", 1);
+
+    nameNode
+      .text(clusterLabel)
+      .transition()
+      .duration(FADE_D)
+      .ease(d3.easeCubicOut)
+      .attr("opacity", 1);
+
+    // show replay after everything settles
+    setTimeout(() => { if (gen === _twGen) showReplayButton(); }, FADE_D - 1800);
+  }
+
+  typePrefix();
+}
 
     function showReplayButton() {
       btnBg.transition().duration(400).attr("opacity", 1);
@@ -564,19 +610,104 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       ctx.stroke();
     }
 
-    function drawSegment(prev, seg, i, len) {
+    // ─── Offscreen canvas for gradient-fade trail rendering ───────────────────
+    // Strategy (Option A):
+    //   1. Draw the full trail onto an offscreen canvas at full opacity,
+    //      split into two Path2D objects (solid / dashed) — one stroke call each,
+    //      no per-segment alpha stacking, no cap artefacts at style transitions.
+    //   2. Apply a linear alpha gradient by compositing the offscreen result
+    //      with destination-in, so the tail fades to transparent without
+    //      touching any other pixel on the main canvas.
+    let offscreen = null;
+    let offCtx    = null;
+
+    function ensureOffscreen() {
+      // Lazily create / recreate when plot dimensions change (e.g. after resize).
+      if (!offscreen || offscreen.width !== plotSz || offscreen.height !== plotSz) {
+        offscreen        = document.createElement("canvas");
+        offscreen.width  = Math.ceil(plotSz);
+        offscreen.height = Math.ceil(plotSz);
+        offCtx           = offscreen.getContext("2d");
+      }
+    }
+
+    function drawTrail(trailArr) {
+      if (trailArr.length < 2) return;
+
+      ensureOffscreen();
+      const oc = offCtx;
+      const sz = offscreen.width;
+
+      // ── 1. Clear offscreen and build two style-bucketed paths ────
+      oc.clearRect(0, 0, sz, sz);
+
+      const solidPath  = new Path2D();
+      const dashedPath = new Path2D();
+
+      // Coordinates are translated into offscreen space (subtract plotX/plotY).
+      for (let j = 1; j < trailArr.length; j++) {
+        const prev = trailArr[j - 1];
+        const seg  = trailArr[j];
+        const path = seg.isDown ? solidPath : dashedPath;
+        path.moveTo(prev.x - plotX, prev.y - plotY);
+        path.lineTo(seg.x  - plotX, seg.y  - plotY);
+      }
+
+      // ── 2. Solid pass (mouse down) — one stroke, no caps stacking ─
+      oc.save();
+      oc.setLineDash([]);
+      oc.strokeStyle = TOKENS.trailDown;
+      oc.lineWidth   = 2.2;
+      oc.lineCap     = "round";
+      oc.lineJoin    = "round";
+      oc.stroke(solidPath);
+      oc.restore();
+
+      // ── 3. Dashed pass (mouse up) ─────────────────────────────────
+      oc.save();
+      oc.setLineDash([4, 3]);
+      oc.strokeStyle = TOKENS.trailUp;
+      oc.lineWidth   = 1.5;
+      oc.lineCap     = "butt";
+      oc.stroke(dashedPath);
+      oc.restore();
+
+      // ── 4. Fade gradient via destination-in compositing ───────────
+      // Gradient runs from the oldest visible point (alpha 0) to the
+      // newest (alpha 1), oriented along the direction of travel.
+      const first = trailArr[0];
+      const last  = trailArr[trailArr.length - 1];
+      const gx0   = first.x - plotX;
+      const gy0   = first.y - plotY;
+      const gx1   = last.x  - plotX;
+      const gy1   = last.y  - plotY;
+
+      const dx  = gx1 - gx0;
+      const dy  = gy1 - gy0;
+      const mag = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Pull the gradient start slightly behind the oldest point so the
+      // very tip fades to fully transparent rather than cutting off hard.
+      const grad = oc.createLinearGradient(
+        gx0 - (dx / mag) * 12, gy0 - (dy / mag) * 12,
+        gx1, gy1
+      );
+      grad.addColorStop(0,    "rgba(0,0,0,0)");
+      grad.addColorStop(0.3,  "rgba(0,0,0,0.1)");
+      grad.addColorStop(1,    "rgba(0,0,0,1)");
+
+      oc.save();
+      oc.globalCompositeOperation = "destination-in";
+      oc.fillStyle = grad;
+      oc.fillRect(0, 0, sz, sz);
+      oc.restore();
+
+      // ── 5. Blit onto main canvas, clipped to the plot box ─────────
       ctx.save();
       ctx.beginPath();
-      ctx.rect(plotX, plotY, plotSz, plotSz);
+      ctx.rect(plotX, plotY, sz, sz);
       ctx.clip();
-      ctx.moveTo(prev.x, prev.y);
-      ctx.lineTo(seg.x, seg.y);
-      const alpha = 0.01 + (i / len) * 0.8;
-      ctx.strokeStyle = seg.isDown ? TOKENS.trailDown : TOKENS.trailUp;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = seg.isDown ? 2.2 : 1.5;
-      ctx.setLineDash(seg.isDown ? [] : [4, 3]);
-      ctx.stroke();
+      ctx.drawImage(offscreen, plotX, plotY);
       ctx.restore();
     }
 
@@ -587,11 +718,10 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       trail.length = 0;
       const start = Math.max(0, f - MAX_TRAIL + 1);
       for (let i = start; i <= f; i++) {
-        const pt = ticks[i];
-        const seg = { x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown };
-        trail.push(seg);
-        if (trail.length > 1) drawSegment(trail[trail.length - 2], seg, trail.length - 1, trail.length);
+        const pt  = ticks[i];
+        trail.push({ x: xSc(pt.x), y: ySc(pt.y), isDown: pt.isDown });
       }
+      drawTrail(trail);
       if (f < ticks.length) {
         const pt = ticks[f];
         cursor.attr("cx", xSc(pt.x)).attr("cy", ySc(pt.y))
@@ -622,7 +752,7 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
 
       if (!twStarted && f > 20) {
         twStarted = true;
-        typeLines(statsLines, typeNodes, CHAR_DELAY, null);
+        typeLines(statsLines, typeNodes, CHAR_DELAY, null, _twGen);
       }
 
       const pt = ticks[f];
@@ -633,16 +763,13 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
       cursor.attr("cx", px).attr("cy", py)
         .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
 
-      const seg = { x: px, y: py, isDown: pt.isDown };
-      trail.push(seg);
+      trail.push({ x: px, y: py, isDown: pt.isDown });
       if (trail.length > MAX_TRAIL) trail.shift();
 
       // Clear only the plot box — right panel is in a separate div/SVG
       ctx.clearRect(plotX, plotY, plotSz, plotSz);
       drawBackground();
-      for (let j = 1; j < trail.length; j++) {
-        drawSegment(trail[j - 1], trail[j], j, trail.length);
-      }
+      drawTrail(trail);
 
       syncControls();
       trajState.frame = f + 1;
@@ -653,38 +780,65 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // RESET + REPLAY
     // =========================================================
 
-    function startAnim() {
-      if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
+function startAnim() {
+  if (_trajRafId) { cancelAnimationFrame(_trajRafId); _trajRafId = null; }
 
-      trajState.frame = 0;
-      trajState.paused = false;
-      trajState.playing = true;
-      trajState.ended = false;
-      revealDone = false;
-      twStarted = false;
+  // Invalidate all in-flight typewriter and reveal setTimeout callbacks.
+  _twGen++;
 
-      trail.length = 0;
-      cursor.attr("opacity", 0);
-      typeNodes.forEach(n => n.text(""));
-      prefixNode.attr("opacity", 0).text("");
-      nameNode.attr("opacity", 0).text("");
+  trajState.frame = 0;
+  trajState.paused = false;
+  trajState.playing = true;
+  trajState.ended = false;
+  revealDone = false;
+  twStarted = false;
 
-      // Hide replay button again
-      btnBg.attr("opacity", 0);
-      btnTxt.attr("opacity", 0);
+  trail.length = 0;
+  cursor.attr("opacity", 0);
 
-      // Reset badge
-      badge.attr("stroke", null).attr("fill", null);
-      if (iconG) iconG.selectAll("path, circle, rect, polygon, ellipse")
-        .style("fill", null).style("stroke", null);
+  typeNodes.forEach(n => n.text(""));
 
-      ctx.clearRect(0, 0, lW, lH);
-      drawBackground();
-      scrubber.value = "0";
-      playBtn.textContent = "⏸";
-      syncControls();
-      animateMouse();
-    }
+  // ── RESET CLUSTER TEXT ─────────────────────────────
+  prefixNode
+    .interrupt()
+    .text("")
+    .attr("opacity", 0);
+
+  nameNode
+    .interrupt()
+    .text("")
+    .attr("opacity", 0);
+
+  // ── RESET RADAR VISUAL STATE ───────────────────────
+  if (snapG._resetRadar) snapG._resetRadar();
+
+  // ── RESET ICON + BADGE ─────────────────────────────
+  // interrupt() cancels any in-flight fade transition before we clear attrs,
+  // so the transition end-value can't land after our reset.
+  badge
+    .interrupt()
+    .attr("stroke", null)
+    .attr("fill", null);
+
+  if (iconG) {
+    iconG.selectAll("path, circle, rect, polygon, ellipse")
+      .interrupt()
+      .style("fill", null)
+      .style("stroke", null);
+  }
+
+  // ── HIDE REPLAY BUTTON ─────────────────────────────
+  btnBg.interrupt().attr("opacity", 0);
+  btnTxt.interrupt().attr("opacity", 0);
+
+  ctx.clearRect(0, 0, lW, lH);
+  drawBackground();
+
+  scrubber.value = "0";
+  playBtn.textContent = "⏸";
+  syncControls();
+  animateMouse();
+}
 
     // =========================================================
     // CONTROL EVENTS
