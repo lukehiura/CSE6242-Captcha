@@ -109,12 +109,27 @@ function renderMouseTrajectory(hfIndex, targetDivId, captionSelector, scatterPoi
     // silently dropped when they fire (they check their captured gen).
     let _twGen = 0;
     // Scales
+    // The game canvas is square and uses screen coordinates (y grows downward).
+    // Two things must hold for the replay to match what the player actually saw:
+    //   1. x and y share the SAME units-per-pixel (aspect-preserving) — otherwise
+    //      a circular mouse motion that doesn't happen to cover equal x/y extents
+    //      gets squashed into an ellipse.
+    //   2. y range is NOT inverted — we're replaying screen-space motion, not
+    //      plotting a chart; top on the game canvas must map to top on the replay.
+    const xExt = d3.extent(ticks, d => d.x);
+    const yExt = d3.extent(ticks, d => d.y);
+    const xMid = (xExt[0] + xExt[1]) / 2;
+    const yMid = (yExt[0] + yExt[1]) / 2;
+    // Use the larger of the two spans so the shorter axis is centered with margin.
+    const span = Math.max(xExt[1] - xExt[0], yExt[1] - yExt[0]) || 1;
+    const half = span / 2 * 1.08;  // 8% visual padding around the motion
+
     const xSc = d3.scaleLinear()
-      .domain(d3.extent(ticks, d => d.x))
+      .domain([xMid - half, xMid + half])
       .range([plotX + 6, plotX + plotSz - 6]);
     const ySc = d3.scaleLinear()
-      .domain(d3.extent(ticks, d => d.y))
-      .range([plotY + plotSz - 6, plotY + 6]);
+      .domain([yMid - half, yMid + half])
+      .range([plotY + 6, plotY + plotSz - 6]);  // y increases DOWN — no flip
 
     // Cursor dot
     const cursor = lSvg.append("circle")
@@ -456,8 +471,10 @@ function positionLegend(legYPos) {
       offCtx    = null;
 
       // ── 4. Update D3 scales to new pixel range ────────────────
+      // Keep both axes using the same direction (y not inverted) — see scale
+      // definition above for why.
       xSc.range([plotX + 6, plotX + plotSz - 6]);
-      ySc.range([plotY + plotSz - 6, plotY + 6]);
+      ySc.range([plotY + 6, plotY + plotSz - 6]);
 
       // ── 5. Reposition the controls overlay + legend ──────────
       const newLegY = plotY + plotSz + bottom.gap;
@@ -736,12 +753,20 @@ function revealCluster() {
     // ANIMATION LOOP
     // =========================================================
 
+    // Playback is driven by RAF (≈60 Hz) consuming physics ticks (240 Hz), so
+    // this multiplier is on top of that ratio — 1.18 ⇒ ~18% faster than the
+    // previous 1-tick-per-frame baseline. Because it's fractional we use an
+    // accumulator so non-integer rates translate to mostly-1-tick frames with
+    // the occasional 2-tick frame, instead of snapping to 2×.
+    const PLAYBACK_SPEED = 1.18;
+    let _speedAccum = 0;
+
     function animateMouse() {
       if (!trajState.playing || trajState.paused) return;
 
-      const f = trajState.frame;
+      const startF = trajState.frame;
 
-      if (f >= ticks.length) {
+      if (startF >= ticks.length) {
         trajState.playing = false;
         trajState.ended = true;
         _trajRafId = null;
@@ -750,21 +775,29 @@ function revealCluster() {
         return;
       }
 
-      if (!twStarted && f > 20) {
+      _speedAccum += PLAYBACK_SPEED;
+      const step = Math.max(1, Math.floor(_speedAccum));
+      _speedAccum -= step;
+
+      const endF = Math.min(startF + step, ticks.length);
+
+      if (!twStarted && endF > 20) {
         twStarted = true;
         typeLines(statsLines, typeNodes, CHAR_DELAY, null, _twGen);
       }
 
-      const pt = ticks[f];
-      const px = xSc(pt.x);
-      const py = ySc(pt.y);
+      // Push every intermediate tick to the trail so the path stays continuous
+      // even on 2-tick frames — but only clear+redraw once per RAF.
+      for (let i = startF; i < endF; i++) {
+        const p = ticks[i];
+        trail.push({ x: xSc(p.x), y: ySc(p.y), isDown: p.isDown });
+        if (trail.length > MAX_TRAIL) trail.shift();
+      }
 
-      if (f === 0) cursor.attr("opacity", 0.9);
-      cursor.attr("cx", px).attr("cy", py)
-        .attr("fill", pt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
-
-      trail.push({ x: px, y: py, isDown: pt.isDown });
-      if (trail.length > MAX_TRAIL) trail.shift();
+      const lastPt = ticks[endF - 1];
+      if (startF === 0) cursor.attr("opacity", 0.9);
+      cursor.attr("cx", xSc(lastPt.x)).attr("cy", ySc(lastPt.y))
+        .attr("fill", lastPt.isDown ? TOKENS.cursorDown : TOKENS.cursorUp);
 
       // Clear only the plot box — right panel is in a separate div/SVG
       ctx.clearRect(plotX, plotY, plotSz, plotSz);
@@ -772,7 +805,7 @@ function revealCluster() {
       drawTrail(trail);
 
       syncControls();
-      trajState.frame = f + 1;
+      trajState.frame = endF;
       _trajRafId = requestAnimationFrame(animateMouse);
     }
 
@@ -792,6 +825,7 @@ function startAnim() {
   trajState.ended = false;
   revealDone = false;
   twStarted = false;
+  _speedAccum = 0;
 
   trail.length = 0;
   cursor.attr("opacity", 0);
