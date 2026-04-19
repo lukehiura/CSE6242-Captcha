@@ -280,6 +280,78 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+.results-probs-wrapper {
+  background: #0d0d1a;
+  border: 1px solid #1e1e30;
+  border-radius: 14px;
+  padding: 20px 24px;
+  width: min(540px, 100%);
+  box-sizing: border-box;
+}
+.results-probs-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #555;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.results-probs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prob-row {
+  display: grid;
+  grid-template-columns: 170px 1fr 54px;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+.prob-name {
+  color: #888;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+.prob-row.assigned .prob-name {
+  color: #fff;
+  font-weight: 700;
+}
+.prob-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.prob-fill {
+  height: 100%;
+  border-radius: 999px;
+  width: 0;
+  transition: width 0.7s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 0 10px currentColor;
+  opacity: 0.55;
+}
+.prob-row.assigned .prob-fill {
+  opacity: 1;
+}
+.prob-pct {
+  color: #777;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  transition: color 0.2s;
+}
+.prob-row.assigned .prob-pct {
+  color: #e8e8e8;
+}
+@media (max-width: 480px) {
+  .prob-row { grid-template-columns: 110px 1fr 48px; font-size: 0.76rem; }
+}
 </style>
 </head>
 <body>
@@ -359,6 +431,11 @@
     <div id="results-cluster-name" class="results-cluster-name"></div>
     <div id="results-cluster-desc" class="results-cluster-desc"></div>
     <div id="results-cluster-traits"></div>
+  </div>
+
+  <div class="results-probs-wrapper">
+    <div class="results-probs-label">Model confidence — all clusters</div>
+    <div id="results-probs" class="results-probs"></div>
   </div>
 
   <div class="results-stats" id="results-stats"></div>
@@ -800,6 +877,35 @@ function renderResults(result, ctx) {
         ${s.unit ? `<div class="result-stat-unit">${s.unit}</div>` : ""}
       </div>`;
   }).join("");
+
+  // Class probabilities — bar per cluster, sorted descending, assigned cluster highlighted.
+  const probsEl = document.getElementById("results-probs");
+  const probs = result.probabilities || {};
+  const entries = Object.entries(probs)
+    .map(([cid, p]) => [Number(cid), Number(p)])
+    .sort((a, b) => b[1] - a[1]);
+
+  probsEl.innerHTML = entries.map(([cid, p]) => {
+    const cinfo = CLUSTER_INFO[cid] || { name: `Cluster ${cid}`, color: "#888" };
+    const assigned = cid === result.cluster ? " assigned" : "";
+    const pct = (p * 100).toFixed(1);
+    return `
+      <div class="prob-row${assigned}">
+        <span class="prob-name" title="${cinfo.name}">${cinfo.name}</span>
+        <div class="prob-bar">
+          <div class="prob-fill" style="color:${cinfo.color};background:${cinfo.color};"></div>
+        </div>
+        <span class="prob-pct">${pct}%</span>
+      </div>`;
+  }).join("");
+
+  // Animate bars in on next frame so the CSS transition actually plays.
+  requestAnimationFrame(() => {
+    probsEl.querySelectorAll(".prob-row").forEach((row, i) => {
+      const fill = row.querySelector(".prob-fill");
+      if (fill) fill.style.width = `${(entries[i][1] * 100).toFixed(1)}%`;
+    });
+  });
 
   const exemplar = result.exemplars?.[0];
   let dashUrl = `/dashboard?cluster=${result.cluster}`;

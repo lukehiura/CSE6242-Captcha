@@ -35,7 +35,20 @@ EPS = 1e-6
 MAX_SPEED_PS = 800  # px/sample — discard teleport glitches
 # Must match the browser game's fixed timestep (game.html PHYSICS_MS = 1000/240).
 _PHYSICS_MS = 1000.0 / 240.0
-
+def _strip_idle_ticks(ticks: list) -> list:
+    """Remove consecutive ticks with identical (x, y) — idle physics frames.
+    Training stores position-change events; live browser stores every 240 Hz
+    physics frame. Without this filter, ~80% of live steps are zero-distance,
+    which deflates speed_mean and inflates pause_rate → everything classifies slow.
+    """
+    if not ticks:
+        return ticks
+    out = [ticks[0]]
+    for t in ticks[1:]:
+        prev = out[-1]
+        if t["x"] != prev["x"] or t["y"] != prev["y"]:
+            out.append(t)
+    return out
 
 def _estimate_duration_ms_from_ticks(ticks: list) -> int:
     """When the client sends duration 0 or omits it, derive ms from tick stream."""
@@ -204,9 +217,9 @@ def _rf_classify(model: dict, ticks: list, duration_ms: int | float, game_type: 
             f"Unknown game_type '{game_type}'. "
             f"Known: {list(zscore_params.keys())}"
         )
-
+    ticks = _strip_idle_ticks(ticks)
     ticks_ds = _downsample_ticks(ticks, duration_ms, tick_rate)
-    feats = _extract_features(ticks_ds, duration_ms)
+    feats = _extract_features(ticks, duration_ms)
     if feats is None:
         raise ValueError("Too few trajectory points to extract features.")
 
