@@ -84,6 +84,7 @@
 .game-card-desc { font-size: 0.78rem; color: #555; margin-top: 6px; line-height: 1.5; }
 
 #page-game {
+  position: relative;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
@@ -176,6 +177,33 @@
   pointer-events: none;
 }
 .game-loading.hidden { opacity: 0; pointer-events: none; }
+
+/* Full-screen overlay while POST /api/classify runs (after level complete). */
+.game-analyze-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(6, 8, 18, 0.94);
+  backdrop-filter: blur(5px);
+  font-size: 0.95rem;
+  color: #9a9aaa;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.game-analyze-overlay .spinner { flex-shrink: 0; }
+.game-analyze-overlay .analyze-title {
+  color: #00d4ff;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+.game-analyze-overlay.hidden { display: none !important; }
 
 .game-hint {
   font-size: 0.8rem;
@@ -422,6 +450,12 @@
 
   <p class="game-hint">Move your mouse inside the game area to play. The game ends automatically when you complete the puzzle.</p>
   <div class="error-banner" id="game-error"></div>
+
+  <div id="game-analyze-overlay" class="game-analyze-overlay hidden" aria-live="polite" aria-busy="false">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="analyze-title">Analyzing your session</div>
+    <div>Extracting movement features and running the classifier…</div>
+  </div>
 </section>
 
 <section id="page-results">
@@ -467,6 +501,20 @@ function showError(id, msg) {
 function clearError(id) {
   const el = document.getElementById(id);
   if (el) { el.textContent = ""; el.style.display = "none"; }
+}
+
+function showAnalyzeOverlay() {
+  const el = document.getElementById("game-analyze-overlay");
+  if (!el) return;
+  el.classList.remove("hidden");
+  el.setAttribute("aria-busy", "true");
+}
+
+function hideAnalyzeOverlay() {
+  const el = document.getElementById("game-analyze-overlay");
+  if (!el) return;
+  el.classList.add("hidden");
+  el.setAttribute("aria-busy", "false");
 }
 
 
@@ -655,6 +703,7 @@ const PHYSICS_MS   = 1000 / 240;
 
 async function startGame(gameIdx) {
   showPage("game");
+  hideAnalyzeOverlay();
   document.getElementById("game-type-label").textContent = GAME_LABELS[gameIdx];
   document.getElementById("game-status").textContent = "Loading…";
   clearError("game-error");
@@ -751,6 +800,7 @@ async function startGame(gameIdx) {
 }
 
 function stopGame() {
+  hideAnalyzeOverlay();
   gameRunning = false;
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
   const old = document.getElementById("game-canvas");
@@ -772,38 +822,37 @@ async function loadScript(src) {
 
 async function finishGame(gameIdx, playSeed) {
   const G = wasmModule;
+  showAnalyzeOverlay();
 
-  let JsonSession = {};
   try {
-    const ptr  = G._game_get_session_data();
-    const json = G.UTF8ToString(ptr);
-    console.log("[game] session JSON:", json);
-    if (json) JsonSession = JSON.parse(json);
-  } catch (e) {
-    console.warn("[game] Could not read session data:", e);
-  }
+    let JsonSession = {};
+    try {
+      const ptr  = G._game_get_session_data();
+      const json = G.UTF8ToString(ptr);
+      console.log("[game] session JSON:", json);
+      if (json) JsonSession = JSON.parse(json);
+    } catch (e) {
+      console.warn("[game] Could not read session data:", e);
+    }
 
-  // Raw ticks + duration only — feature extraction matches server (_extract_features + downsample).
-  const rawTicks = (JsonSession.tickInputs || []).map(t => ({
-    x: t.x, y: t.y, isDown: t.isDown, sampleIndex: t.sampleIndex,
-  }));
-  const tickCount = JsonSession.physicsTickCount || rawTicks.length;
-  let durationMs = JsonSession.duration != null ? Number(JsonSession.duration) : NaN;
-  if (!Number.isFinite(durationMs) || durationMs <= 0) {
-    durationMs = tickCount * PHYSICS_MS;
-  }
-  durationMs = Math.round(durationMs);
+    const rawTicks = (JsonSession.tickInputs || []).map(t => ({
+      x: t.x, y: t.y, isDown: t.isDown, sampleIndex: t.sampleIndex,
+    }));
+    const tickCount = JsonSession.physicsTickCount || rawTicks.length;
+    let durationMs = JsonSession.duration != null ? Number(JsonSession.duration) : NaN;
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      durationMs = tickCount * PHYSICS_MS;
+    }
+    durationMs = Math.round(durationMs);
 
-  const classifyPayload = {
-    ticks: rawTicks,
-    duration: durationMs,
-    game_type: GAME_TYPES[gameIdx],
-  };
+    const classifyPayload = {
+      ticks: rawTicks,
+      duration: durationMs,
+      game_type: GAME_TYPES[gameIdx],
+    };
 
-  try { G._game_cleanup(); } catch(e) {}
+    try { G._game_cleanup(); } catch(e) {}
 
-  let result;
-  try {
     const resp = await fetch("/api/classify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -819,15 +868,14 @@ async function finishGame(gameIdx, playSeed) {
       const msg = data.detail || data.error || `Server returned ${resp.status}`;
       throw new Error(msg);
     }
-    result = data;
+    renderResults(data, { game_type: GAME_TYPES[gameIdx] });
   } catch (err) {
     console.error("[classify]", err);
     showError("game-error", `Classification failed: ${err.message}`);
     document.getElementById("game-status").textContent = "Error";
-    return;
+  } finally {
+    hideAnalyzeOverlay();
   }
-
-  renderResults(result, { game_type: GAME_TYPES[gameIdx] });
 }
 
 
