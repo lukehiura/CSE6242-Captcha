@@ -126,7 +126,7 @@ chmod +x scripts/package_team165final.sh
 ./scripts/package_team165final.sh
 ```
 
-Defaults: report from `./team165report.pdf` in the repo root (else a sibling `CSE6242-Docs` clone); poster from `./team165poster.pdf` or `./CSE6242 Final Poster.pdf` (else `CSE6242-Docs`). Override with `REPORT_SRC=...` and `POSTER_SRC=...` if needed. The script omits from **CODE/** in the zip: `.git`, virtualenvs, `.env`, `figures/`, root PDFs (they go only under **DOC/**), `README.md`, backup `*_old.*` files, and similar non-runtime files.
+Defaults: report from `./team165report.pdf` in the repo root (else a sibling `CSE6242-Docs` clone); poster from `./team165poster.pdf` or `./CSE6242 Final Poster.pdf` (else `CSE6242-Docs`). Override with `REPORT_SRC=...` and `POSTER_SRC=...` if needed. The script omits from **CODE/** in the zip: `.git`, virtualenvs, `.env`, `figures/`, root PDFs (they go only under **DOC/**), `README.md`, `README.txt` (the user guide exists only at the zip root, not duplicated under **CODE/**), `scripts/` (packaging lives in git only), backup `*_old.*` files, and similar non-runtime files.
 
 ## Folder structure
 

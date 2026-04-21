@@ -24,6 +24,7 @@ Prerequisites: Python 3.11+
    (Alternatively, create a virtualenv and pip install the packages listed under [project.dependencies] in pyproject.toml.)
 
 3. Hugging Face token (needed to load CaptchaSolve30k from the hub). See https://huggingface.co/docs/hub/en/security-tokens
+   cd CODE
    cp .env.example .env
    Edit .env and set HF_TOKEN to your token.
 
@@ -49,5 +50,5 @@ Optional — re-run the full data pipeline (Jupyter):
 
 DEMO VIDEO (OPTIONAL)
 ---------------------
-Youtube video showing install through running the demo:
+Unlisted YouTube walkthrough (install through running the demo):
 https://youtu.be/i0SZUTvFVbI?si=qTjgMZ5hKvPj4nVn
