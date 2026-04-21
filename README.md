@@ -27,6 +27,8 @@ cd CSE6242-Captcha
 uv sync --extra dev
 ```
 
+**Clean reinstall (new machine or “start over”):** from the repo root run `./scripts/fresh_setup.sh`. That deletes local `.venv`, caches, Jupyter checkpoints, and any `team*final.zip`, then runs `uv sync`. Your `.env` is kept unless you run `FRESH_RESET_ENV=1 ./scripts/fresh_setup.sh`, which backs up `.env` and copies from `.env.example`.
+
 Without uv, create a virtualenv and `pip install` the packages listed under `[project.dependencies]` in `pyproject.toml` (there is no `[build-system]` stanza, so editable `pip install -e .` is not configured).
 
 **Optional dev tools:** `uv run ruff check .` (Ruff is in the `dev` extra).
@@ -114,6 +116,17 @@ Response includes `cluster`, `cluster_name`, `probabilities` (per-cluster RF con
 | `SECRET_KEY` | dev default string | Flask `SECRET_KEY` |
 
 **Frontend API base:** `js/config.js` uses `window.DASHBOARD_API_BASE` when set; `js/dashboard_api_base.js` is currently empty, so the UI expects the **same origin** as the Flask server.
+
+## Final course submission (`team165final.zip`)
+
+Canvas expects **team165final.zip** with exactly: **README.txt** (user guide), **DOC/** (`team165report.pdf`, `team165poster.pdf`), **CODE/** (minimal runnable tree). From a full git checkout, build it with:
+
+```bash
+chmod +x scripts/package_team165final.sh
+./scripts/package_team165final.sh
+```
+
+Defaults: report from `./team165report.pdf` in the repo root (else a sibling `CSE6242-Docs` clone); poster from `./team165poster.pdf` or `./CSE6242 Final Poster.pdf` (else `CSE6242-Docs`). Override with `REPORT_SRC=...` and `POSTER_SRC=...` if needed. The script omits from **CODE/** in the zip: `.git`, virtualenvs, `.env`, `figures/`, root PDFs (they go only under **DOC/**), `README.md`, backup `*_old.*` files, and similar non-runtime files.
 
 ## Folder structure
 
